@@ -8,6 +8,7 @@ import com.kropotov.lovehatebackend.utilities.mapToString
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import java.time.LocalDateTime
 import kotlin.math.floor
 
@@ -17,14 +18,6 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         val insertTopic = Topics.insert {
             it[Topics.title] = title
             it[Topics.userId] = userId
-            it[opinionsCount] = 1
-            it[loveIndex] = when (opinionType) {
-                OpinionType.LOVE -> 1.toDouble()
-                OpinionType.HATE -> 0.toDouble()
-                else -> 0.5
-            }
-            it[Topics.opinionType] = opinionType
-            it[percent] = 100
             it[createdAt] = LocalDateTime.now()
         }
         insertTopic.resultedValues?.singleOrNull()?.let(::resultRowToTopic)
@@ -46,17 +39,6 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         }
 
         return floor(topicsCount.toDouble() / BATCH_TOPIC_AMOUNT.toDouble()).toInt()
-    }
-
-    override suspend fun updateTopic(topic: Topic) {
-        dbQuery {
-            Topics.update({ Topics.id eq topic.id }) {
-                it[loveIndex] = topic.loveIndex
-                it[opinionsCount] = topic.opinionsCount
-                it[opinionType] = topic.opinionType
-                it[percent] = topic.percent
-            }
-        }
     }
 
     override suspend fun editTopic(id: Int, title: String): Boolean = dbQuery {
@@ -85,26 +67,36 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
     }
 
     override suspend fun findMostPopularTopics(page: Int): List<Topic> = dbQuery {
+        val opinionsCount = Opinions.topicId.count().alias("opinionsCount")
         Topics
-            .selectAll()
-            .orderBy(Topics.opinionsCount, SortOrder.DESC)
+            .leftJoin(Opinions, { id }, { topicId })
+            .select(opinionsCount, *Topics.columns.toTypedArray())
+            .groupBy(Topics.id)
+            .orderBy(opinionsCount, SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
     }
 
     override suspend fun findMostLovedTopics(page: Int): List<Topic> = dbQuery {
-        Topics
-            .selectAll()
-            .orderBy(Topics.loveIndex, SortOrder.DESC)
+        val opinionTypesCount = Opinions.type.count().alias("")
+//        Topics
+//            .leftJoin(Opinions, { id }, { topicId }, { Opinions.type neq OpinionType.INDIFFERENCE })
+//            .select(Topics.id, Topics.title, Topics.userId, Topics.createdAt, Opinions.type, opinionTypesCount)
+//            .groupBy(Topics.id, Topics.title, Topics.userId, Topics.createdAt, Opinions.type)
+//            .limitByPage(page)
+//            .map(::resultRowToTopic)
+        Opinions
+            .select(Opinions.type)
+            .where(Opinions.type neq OpinionType.INDIFFERENCE)
+            .groupBy(Opinions., Opinions.type)
             .limitByPage(page)
             .map(::resultRowToTopic)
     }
 
     override suspend fun findMostIndifferentTopics(page: Int): List<Topic> = dbQuery {
         Topics
-            .select {
-                Topics.opinionType eq OpinionType.INDIFFERENCE
-            }
+            .selectAll()
+            .where { Topics.opinionType eq OpinionType.INDIFFERENCE }
             .orderBy(Topics.opinionsCount, SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
@@ -178,4 +170,10 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     private fun AbstractQuery<*>.limitByPage(page: Int) =
         limit(BATCH_TOPIC_AMOUNT, (page * BATCH_TOPIC_AMOUNT).toLong())
+
+    class SubQueryExpression<T>(private val aliasQuery : QueryAlias) : Expression<T>() {
+        override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+            aliasQuery.describe(TransactionManager.current(), queryBuilder)
+        }
+    }
 }

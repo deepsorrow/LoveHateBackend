@@ -11,8 +11,6 @@ interface TopicsDAOFacade {
 
     suspend fun editTopic(id: Int, title: String): Boolean
 
-    suspend fun updateTopic(topic: Topic)
-
     suspend fun findNewTopics(page: Int): List<Topic>
 
     suspend fun findRecentTopics(page: Int): List<Topic>

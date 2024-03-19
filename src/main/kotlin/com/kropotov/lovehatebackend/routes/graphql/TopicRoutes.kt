@@ -7,7 +7,6 @@ import com.kropotov.lovehatebackend.db.dao.topics.TopicsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.users.UsersDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.models.*
 import com.kropotov.lovehatebackend.utilities.getUserId
-import org.jetbrains.exposed.sql.transactions.transaction
 
 fun SchemaBuilder.topicRoutes() {
 
@@ -42,7 +41,7 @@ fun SchemaBuilder.topicRoutes() {
         description = "Returns detailed data about topic for page"
         resolver { id: Int ->
             val topic = topicsDao.getTopic(id)!!
-            val username = usersDao.getUser(topic.userId)?.username.orEmpty()
+            val author = usersDao.getUser(topic.userId)?.username.orEmpty()
             val authorOpinion = opinionsDao.getTopicAuthorOpinion(id)
             TopicPage(
                 id = id,
@@ -50,7 +49,7 @@ fun SchemaBuilder.topicRoutes() {
                 opinionsCount = topic.opinionsCount,
                 opinionType = topic.opinionType,
                 percent = topic.percent,
-                author = username,
+                author = author,
                 authorOpinionType = authorOpinion.type,
                 isFavorite = false,
                 createdAt = topic.createdAt

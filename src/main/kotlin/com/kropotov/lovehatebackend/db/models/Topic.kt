@@ -7,10 +7,6 @@ data class Topic(
     val id: Int,
     val userId: Int,
     val title: String,
-    var opinionsCount: Int,
-    var opinionType: OpinionType,
-    var percent: Int,
-    var loveIndex: Double,
     val createdAt: String
 )
 
@@ -45,10 +41,6 @@ object Topics : Table() {
     val id = integer("id").autoIncrement()
     val userId = integer("userId")
     val title = varchar("title", 128)
-    val opinionsCount = integer("opinionsCount")
-    val opinionType = enumeration<OpinionType>("opinionType")
-    val loveIndex = double("loveIndex")
-    val percent = integer("percent")
     val createdAt = datetime("createdAt")
 
     override val primaryKey = PrimaryKey(id)
