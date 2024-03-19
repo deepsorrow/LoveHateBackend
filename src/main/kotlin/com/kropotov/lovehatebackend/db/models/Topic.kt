@@ -3,10 +3,6 @@ package com.kropotov.lovehatebackend.db.models
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.datetime
 
-/**
- * It is best to save [opinionsCount], [opinionType] and [percent] than calculate it each time
- * through joining multiple tables at each list request.
- */
 data class Topic(
     val id: Int,
     val userId: Int,
@@ -15,7 +11,7 @@ data class Topic(
     var opinionType: OpinionType,
     var percent: Int,
     var loveIndex: Double,
-    val date: String
+    val createdAt: String
 )
 
 data class TopicPage(
@@ -27,7 +23,7 @@ data class TopicPage(
     val author: String,
     val authorOpinionType: OpinionType,
     val isFavorite: Boolean,
-    val date: String
+    val createdAt: String
 )
 
 data class TopicsListResponse(
@@ -53,7 +49,7 @@ object Topics : Table() {
     val opinionType = enumeration<OpinionType>("opinionType")
     val loveIndex = double("loveIndex")
     val percent = integer("percent")
-    val date = datetime("date")
+    val createdAt = datetime("createdAt")
 
     override val primaryKey = PrimaryKey(id)
 }

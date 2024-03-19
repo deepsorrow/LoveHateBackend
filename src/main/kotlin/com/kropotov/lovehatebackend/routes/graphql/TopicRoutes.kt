@@ -1,4 +1,4 @@
-package com.kropotov.lovehatebackend.routes
+package com.kropotov.lovehatebackend.routes.graphql
 
 import com.apurebase.kgraphql.Context
 import com.apurebase.kgraphql.schema.dsl.SchemaBuilder
@@ -6,7 +6,8 @@ import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.topics.TopicsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.users.UsersDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.models.*
-import io.ktor.server.auth.*
+import com.kropotov.lovehatebackend.utilities.getUserId
+import org.jetbrains.exposed.sql.transactions.transaction
 
 fun SchemaBuilder.topicRoutes() {
 
@@ -32,9 +33,8 @@ fun SchemaBuilder.topicRoutes() {
 
     query("topic") {
         description = "Returns topic by Id"
-        resolver { context: Context, id: Int ->
-            val name = if (context.get<UserIdPrincipal>()?.name == "1") id else id
-            topicsDao.getTopic(name)
+        resolver { id: Int ->
+            topicsDao.getTopic(id)
         }
     }
 
@@ -53,14 +53,14 @@ fun SchemaBuilder.topicRoutes() {
                 author = username,
                 authorOpinionType = authorOpinion.type,
                 isFavorite = false,
-                date = topic.date
+                createdAt = topic.createdAt
             )
         }
     }
 
     query("topics") {
         description = "Returns all topics, sorted by [sortType]"
-        resolver { sortType: TopicsSortType?, page: Int ->
+        resolver { context: Context, sortType: TopicsSortType?, page: Int ->
             val pageCount = topicsDao.getTopicsPageCount()
             val results = when (sortType) {
                 TopicsSortType.RECENT -> topicsDao.findRecentTopics(page)
@@ -68,8 +68,8 @@ fun SchemaBuilder.topicRoutes() {
                 TopicsSortType.POPULAR -> topicsDao.findMostPopularTopics(page)
                 TopicsSortType.MOST_LOVED -> topicsDao.findMostLovedTopics(page)
                 TopicsSortType.MOST_HATED -> topicsDao.findMostHatedTopics(page)
-                TopicsSortType.FAVORITES -> topicsDao.findFavoriteTopics(0, page)
-                TopicsSortType.BY_USER_ID -> topicsDao.findUserTopics(0, page)
+                TopicsSortType.FAVORITES -> topicsDao.findFavoriteTopics(context.getUserId(), page)
+                TopicsSortType.BY_USER_ID -> topicsDao.findUserTopics(context.getUserId(), page)
                 else -> topicsDao.findRecentTopics(page)
             }
             TopicsListResponse(
@@ -88,11 +88,11 @@ fun SchemaBuilder.topicRoutes() {
 
     mutation("addTopic") {
         description = "Adds new topic"
-        resolver { title: String, userId: Int, opinionType: OpinionType, comment: String ->
+        resolver { context: Context, title: String, opinionType: OpinionType, comment: String ->
 
+            val userId = context.getUserId()
             val topic = topicsDao.addNewTopic(title, opinionType, userId)!!
             opinionsDao.createOpinion(topic.id, userId, comment, opinionType)
-
             topic
         }
     }

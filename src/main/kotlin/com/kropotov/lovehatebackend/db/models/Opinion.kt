@@ -20,7 +20,7 @@ data class Opinion(
     val userId: Int,
     val text: String,
     val type: OpinionType,
-    val date: String
+    val createdAt: String
 )
 
 data class OpinionListItem(
@@ -49,7 +49,7 @@ object Opinions : Table() {
     val userId = integer("userId")
     val text = text("text")
     val type = enumeration<OpinionType>("type")
-    val date = datetime("date")
+    val createdAt = datetime("createdAt")
 
     override val primaryKey = PrimaryKey(id)
 }

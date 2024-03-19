@@ -33,7 +33,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
     override suspend fun getTopicAuthorOpinion(topicId: Int): Opinion = dbQuery {
         Opinions
             .select { Opinions.topicId eq topicId }
-            .orderBy(Opinions.date, SortOrder.ASC)
+            .orderBy(Opinions.createdAt, SortOrder.ASC)
             .first()
             .run(::resultRowToOpinion)
     }
@@ -44,7 +44,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             it[this.userId] = userId
             it[this.text] = text
             it[this.type] = type
-            it[date] = LocalDateTime.now()
+            it[createdAt] = LocalDateTime.now()
         }
         insertOpinion.resultedValues?.singleOrNull()?.let(::resultRowToOpinion)
     }
@@ -74,16 +74,15 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             Opinions
                 .leftJoin(Topics, { Opinions.topicId }, { id })
                 .leftJoin(Users, { Opinions.userId }, { id })
-                .slice(Opinions.id, topicTitle, username, Opinions.text, Opinions.type, Opinions.date)
-                .select {
+                .select(Opinions.id, topicTitle, username, Opinions.text, Opinions.type, Opinions.createdAt)
+                .where {
                     val filterByTopicId = if (topicId != null) Opinions.topicId eq topicId else Op.TRUE
                     val filterByOpinionType = if (opinionType != null) Opinions.type eq opinionType else Op.TRUE
-
                     filterByTopicId and filterByOpinionType
                 }
-                .orderBy(Opinions.date, SortOrder.DESC)
+                .orderBy(Opinions.createdAt, SortOrder.DESC)
                 .limitByPage(page)
-                .sortedBy { Opinions.date }
+                .sortedBy { Opinions.createdAt }
                 .map {
                     OpinionListItem(
                         id = it[Opinions.id],
@@ -91,7 +90,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
                         topicTitle = it.getOrNull(topicTitle).orEmpty(),
                         text = it[Opinions.text],
                         type = it[Opinions.type],
-                        date = it[Opinions.date].mapToString()
+                        date = it[Opinions.createdAt].mapToString()
                     )
                 }
         }
@@ -126,7 +125,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
         userId = row[Opinions.userId],
         text = row[Opinions.text],
         type = row[Opinions.type],
-        date = row[Opinions.date].mapToString(),
+        createdAt = row[Opinions.createdAt].mapToString(),
     )
 
     private fun AbstractQuery<*>.limitByPage(page: Int)

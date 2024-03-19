@@ -14,7 +14,7 @@ class CommentsDAOFacadeImpl : CommentsDAOFacade {
         userId = row[Comments.userId],
         text = row[Comments.text],
         opinionId = row[Comments.opinionId],
-        date = row[Comments.date].mapToString(),
+        createdAt = row[Comments.createdAt].mapToString(),
     )
 
     override suspend fun getComment(id: Int): Comment? = dbQuery {
@@ -29,7 +29,7 @@ class CommentsDAOFacadeImpl : CommentsDAOFacade {
             it[Comments.text] = text
             it[Comments.userId] = userId
             it[Comments.opinionId] = opinionId
-            it[date] = LocalDateTime.now()
+            it[createdAt] = LocalDateTime.now()
         }
         insertComment.resultedValues?.singleOrNull()?.let(::resultRowToComment)
     }

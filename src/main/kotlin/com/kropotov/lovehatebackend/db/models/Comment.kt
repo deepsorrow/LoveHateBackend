@@ -8,7 +8,7 @@ data class Comment(
     val userId: Int,
     val opinionId: Int,
     val text: String,
-    val date: String,
+    val createdAt: String,
 )
 
 object Comments : Table() {
@@ -16,7 +16,7 @@ object Comments : Table() {
     val userId = integer("userId")
     val opinionId = integer("opinionId")
     val text = varchar("text", 128)
-    val date = datetime("date")
+    val createdAt = datetime("createdAt")
 
     override val primaryKey = PrimaryKey(id)
 }

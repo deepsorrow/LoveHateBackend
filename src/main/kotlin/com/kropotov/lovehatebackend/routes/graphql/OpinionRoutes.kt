@@ -1,11 +1,13 @@
-package com.kropotov.lovehatebackend.routes
+package com.kropotov.lovehatebackend.routes.graphql
 
+import com.apurebase.kgraphql.Context
 import com.apurebase.kgraphql.schema.dsl.SchemaBuilder
 import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.topics.TopicsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.models.Opinion
 import com.kropotov.lovehatebackend.db.models.OpinionListResponse
 import com.kropotov.lovehatebackend.db.models.OpinionType
+import com.kropotov.lovehatebackend.utilities.getUserId
 
 fun SchemaBuilder.opinionRoutes() {
 
@@ -39,14 +41,10 @@ fun SchemaBuilder.opinionRoutes() {
 
     mutation("publishOpinion") {
         description = "Publishes someone's valuable opinion"
-        resolver {  topicId: Int, userId: Int, text: String, type: OpinionType ->
+        resolver { context: Context, topicId: Int, text: String, type: OpinionType ->
 
-            val opinion = opinionsDao.createOpinion(topicId, userId, text, type)
+            val opinion = opinionsDao.createOpinion(topicId, context.getUserId(), text, type)
 
-            /**
-             * It is best to save opinionsCount, opinionType and percent than calculate it each time
-             * through joining multiple tables at each list request.
-             */
             val topic = topicsDao.getTopic(topicId)!!
             topic.opinionsCount += 1
 

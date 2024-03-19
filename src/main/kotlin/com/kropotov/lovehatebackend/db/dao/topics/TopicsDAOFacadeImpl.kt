@@ -7,6 +7,7 @@ import com.kropotov.lovehatebackend.utilities.StringSimilarity
 import com.kropotov.lovehatebackend.utilities.mapToString
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import java.time.LocalDateTime
 import kotlin.math.floor
 
@@ -17,16 +18,22 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
             it[Topics.title] = title
             it[Topics.userId] = userId
             it[opinionsCount] = 1
+            it[loveIndex] = when (opinionType) {
+                OpinionType.LOVE -> 1.toDouble()
+                OpinionType.HATE -> 0.toDouble()
+                else -> 0.5
+            }
             it[Topics.opinionType] = opinionType
             it[percent] = 100
-            it[date] = LocalDateTime.now()
+            it[createdAt] = LocalDateTime.now()
         }
         insertTopic.resultedValues?.singleOrNull()?.let(::resultRowToTopic)
     }
 
     override suspend fun getTopic(id: Int): Topic? = dbQuery {
         Topics
-            .select { Topics.id eq id }
+            .selectAll()
+            .where { Topics.id eq id }
             .map(::resultRowToTopic)
             .singleOrNull()
     }
@@ -61,7 +68,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
     override suspend fun findNewTopics(page: Int): List<Topic> = dbQuery {
         Topics
             .selectAll()
-            .orderBy(Topics.date, SortOrder.DESC)
+            .orderBy(Topics.createdAt, SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
     }
@@ -72,7 +79,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
             .slice(Topics.columns)
             .selectAll()
             .groupBy(*Topics.columns.toTypedArray())
-            .orderBy(Opinions.date.max(), SortOrder.DESC)
+            .orderBy(Opinions.createdAt.max(), SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
     }
@@ -115,9 +122,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
     override suspend fun findFavoriteTopics(userId: Int, page: Int): List<Topic> = dbQuery {
         Favorites
             .leftJoin(Topics, { topicId }, { id })
-            .select {
-                Favorites.isFavorite eq Op.TRUE
-            }
+            .selectAll()
             .orderBy(Favorites.date, SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
@@ -127,7 +132,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         Users
             .leftJoin(Topics, { id }, { Topics.userId })
             .selectAll()
-            .orderBy(Topics.date, SortOrder.DESC)
+            .orderBy(Topics.createdAt, SortOrder.DESC)
             .limitByPage(page)
             .map(::resultRowToTopic)
     }
@@ -137,6 +142,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         val similarTopicIds = dbQuery {
             Topics
                 .selectAll()
+                .where { Topics.id neq topicId }
                 .map {
                     val rowTopic = resultRowToTopic(it)
                     StringSimilarity.similarity(topicTitle, rowTopic.title) to rowTopic
@@ -163,7 +169,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         id = row[Topics.id],
         userId = row[Topics.userId],
         title = row[Topics.title],
-        date = row[Topics.date].mapToString(),
+        createdAt = row[Topics.createdAt].mapToString(),
         opinionsCount = row[Topics.opinionsCount],
         opinionType = row[Topics.opinionType],
         percent = row[Topics.percent],

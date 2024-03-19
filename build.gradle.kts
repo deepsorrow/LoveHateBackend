@@ -11,7 +11,6 @@ plugins {
     kotlin("jvm") version "1.9.23"
     kotlin("plugin.serialization") version "1.4.21"
     id("io.ktor.plugin") version "2.3.6"
-    application
 }
 
 group = "com.kropotov.lovehatebackend"
@@ -51,11 +50,14 @@ dependencies {
 
     implementation("io.ktor:ktor-client-websockets")
 
+    implementation("at.favre.lib:bcrypt:0.10.2")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("com.github.mortennobel:java-image-scaling:0.8.6")
-    implementation("io.ktor:ktor-server-auth:$ktor_version")
-    implementation("io.ktor:ktor-server-auth-jvm:2.3.6")
-    implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
+//    implementation("io.ktor:ktor-server-auth")
+//    implementation("io.ktor:ktor-server-auth-jvm:2.3.6")
+    implementation("io.ktor:ktor-server-double-receive")
+    implementation("io.ktor:ktor-server-auth-jwt")
+    implementation("io.ktor:ktor-server-double-receive-jvm:2.3.6")
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }

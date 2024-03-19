@@ -5,14 +5,17 @@ import com.kropotov.lovehatebackend.db.models.MediaType
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
+import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.io.File
 
-fun Application.configureMediaMultipartRoutes() = routing {
+fun Application.mediaMultipartRoutes() = routing {
 
     val dao = MediaDAOFacadeImpl()
+
+    staticFiles("/media/", File("media"))
 
     post("/upload-media") {
         try {

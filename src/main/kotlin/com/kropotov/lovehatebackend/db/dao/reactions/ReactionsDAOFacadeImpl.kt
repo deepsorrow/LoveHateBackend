@@ -2,8 +2,10 @@ package com.kropotov.lovehatebackend.db.dao.reactions
 
 import com.kropotov.lovehatebackend.db.dao.DatabaseSingleton.dbQuery
 import com.kropotov.lovehatebackend.db.models.*
+import com.kropotov.lovehatebackend.utilities.mapToString
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.javatime.date
 
 class ReactionsDAOFacadeImpl : ReactionsDAOFacade {
     private fun resultRowToReaction(row: ResultRow) = Reaction(
@@ -11,6 +13,7 @@ class ReactionsDAOFacadeImpl : ReactionsDAOFacade {
         userId = row[Reactions.userId],
         opinionId = row[Reactions.opinionId],
         commentId = row[Reactions.commentId],
+        date = row[Reactions.date].mapToString(),
         type = row[Reactions.type],
     )
 
@@ -34,8 +37,8 @@ class ReactionsDAOFacadeImpl : ReactionsDAOFacade {
             .map(::resultRowToReaction)
     }
 
-    override suspend fun addReaction(userId: Int, opinionId: Int, commentId: Int, type: ReactionType): Reaction? = dbQuery {
-        val insertOpinion = Reactions.insert {
+    override suspend fun upsertReaction(userId: Int, opinionId: Int?, commentId: Int?, type: ReactionType): Reaction? = dbQuery {
+        val insertOpinion = Reactions.upsert {
             it[this.userId] = userId
             it[this.opinionId] = opinionId
             it[this.commentId] = commentId
@@ -44,8 +47,10 @@ class ReactionsDAOFacadeImpl : ReactionsDAOFacade {
         insertOpinion.resultedValues?.singleOrNull()?.let(::resultRowToReaction)
     }
 
-    override suspend fun deleteReaction(id: Int): Boolean = dbQuery {
-        Reactions.deleteWhere { Reactions.id eq id } > 0
+    override suspend fun deleteReaction(userId: Int, opinionId: Int?, commentId: Int?): Boolean = dbQuery {
+        Reactions.deleteWhere {
+            (Reactions.userId eq userId) and (Reactions.opinionId eq opinionId) and (Reactions.commentId eq commentId)
+        } > 0
     }
 
 }

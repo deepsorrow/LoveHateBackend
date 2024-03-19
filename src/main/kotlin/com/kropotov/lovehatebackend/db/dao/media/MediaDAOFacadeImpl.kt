@@ -4,11 +4,8 @@ import com.kropotov.lovehatebackend.db.dao.DatabaseSingleton.dbQuery
 import com.kropotov.lovehatebackend.db.models.Media
 import com.kropotov.lovehatebackend.db.models.MediaType
 import com.kropotov.lovehatebackend.db.models.Multimedia
-import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
 
 class MediaDAOFacadeImpl : MediaDAOFacade {
 
@@ -18,11 +15,13 @@ class MediaDAOFacadeImpl : MediaDAOFacade {
         opinionId = row[Multimedia.opinionId],
         commentId = row[Multimedia.commentId],
         srcPath = row[Multimedia.srcPath],
+        source = row[Multimedia.mediaSource],
         type = row[Multimedia.type],
     )
     override suspend fun getMedia(id: Int): Media? = dbQuery {
         Multimedia
-            .select { Multimedia.id eq id }
+            .selectAll()
+            .where { Multimedia.id eq id }
             .map(::resultRowToMedia)
             .firstOrNull()
     }
