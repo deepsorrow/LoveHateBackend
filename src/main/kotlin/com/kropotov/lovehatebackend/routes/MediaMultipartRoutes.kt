@@ -11,11 +11,14 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.io.File
 
+const val ROOT_MEDIA = "media"
+const val BLANK_AVATARS_ROOT = "$ROOT_MEDIA/blank_avatars/"
+
 fun Application.mediaMultipartRoutes() = routing {
 
     val dao = MediaDAOFacadeImpl()
 
-    staticFiles("/media/", File("media"))
+    staticFiles(ROOT_MEDIA, File(ROOT_MEDIA))
 
     post("/upload-media") {
         try {

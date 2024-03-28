@@ -2,17 +2,28 @@ package com.kropotov.lovehatebackend.routes.graphql
 
 import com.apurebase.kgraphql.Context
 import com.apurebase.kgraphql.schema.dsl.SchemaBuilder
-import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacadeImpl
-import com.kropotov.lovehatebackend.db.dao.topics.TopicsDAOFacadeImpl
-import com.kropotov.lovehatebackend.db.models.Opinion
-import com.kropotov.lovehatebackend.db.models.OpinionListResponse
-import com.kropotov.lovehatebackend.db.models.OpinionType
+import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacade
+import com.kropotov.lovehatebackend.db.models.*
 import com.kropotov.lovehatebackend.utilities.getUserId
+import org.kodein.di.DI
+import org.kodein.di.instance
 
-fun SchemaBuilder.opinionRoutes() {
+data class OpinionListResponse(
+    val totalPages: Int,
+    val results: List<OpinionListItem>
+)
 
-    val topicsDao = TopicsDAOFacadeImpl()
-    val opinionsDao = OpinionsDAOFacadeImpl()
+enum class OpinionsListType {
+    ALL,
+    BY_CURRENT_USER,
+    BY_FAVORITES,
+    MOST_LIKED,
+    MOST_DISLIKED
+}
+
+fun SchemaBuilder.opinionRoutes(kodein: DI) {
+
+    val opinionsDao by kodein.instance<OpinionsDAOFacade>()
 
     type<Opinion> {
         description = "User's opinion about specific topic"
@@ -26,12 +37,23 @@ fun SchemaBuilder.opinionRoutes() {
         description = "Love, Hate or Indifference expressed in Opinion"
     }
 
-    query("latestOpinions") {
-        description = "Returns topic by Id"
-        resolver { topicId: Int?, opinionType: OpinionType?, page: Int ->
+    enum<OpinionsListType> {
+        description = "Filter type to get list of opinions"
+    }
+
+    query("opinions") {
+        description = "Returns opinions sorted by date descending"
+        resolver {
+            context: Context, topicId: Int?, opinionType: OpinionType?, listType: OpinionsListType?, onlyFirst: Boolean, page: Int ->
 
             val totalPages = opinionsDao.getOpinionsPageCount(opinionType)
-            val results = opinionsDao.findLatestOpinions(topicId, opinionType, page)
+            val results = when (listType) {
+                OpinionsListType.BY_CURRENT_USER -> opinionsDao.findUserOpinions(context.getUserId(), page)
+                OpinionsListType.BY_FAVORITES -> opinionsDao.findFavoriteOpinions(context.getUserId(), page)
+                OpinionsListType.MOST_LIKED -> opinionsDao.findMostLikedOpinions(context.getUserId(), onlyFirst, page)
+                OpinionsListType.MOST_DISLIKED -> opinionsDao.findMostCondemnedOpinions(context.getUserId(), onlyFirst, page)
+                else -> opinionsDao.findLatestOpinions(context.getUserId(), topicId, opinionType, page)
+            }
             OpinionListResponse(
                 totalPages = totalPages,
                 results = results
@@ -43,31 +65,7 @@ fun SchemaBuilder.opinionRoutes() {
         description = "Publishes someone's valuable opinion"
         resolver { context: Context, topicId: Int, text: String, type: OpinionType ->
 
-            val opinion = opinionsDao.createOpinion(topicId, context.getUserId(), text, type)
-
-            val topic = topicsDao.getTopic(topicId)!!
-            topic.opinionsCount += 1
-
-            val opinionsTypesCount = opinionsDao.findOpinionTypes(topic.id)
-            topic.opinionType = opinionsTypesCount[0].first
-
-            // Indifference may be only when no other opinions exist.
-            val loveCount = opinionsTypesCount.find { it.first == OpinionType.LOVE }?.second ?: 0
-            val hateCount = opinionsTypesCount.find { it.first == OpinionType.HATE }?.second ?: 0
-
-            val percent = 100 - if (loveCount > hateCount) {
-                hateCount * 100 / loveCount
-            } else if (loveCount < hateCount) {
-                loveCount * 100 / hateCount
-            } else {
-                topic.opinionType = OpinionType.INDIFFERENCE
-                50 // loveCount == hateCount
-            }
-            topic.percent = percent
-            topic.loveIndex = (loveCount / if (hateCount != 0) hateCount else 1).toDouble()
-
-            topicsDao.updateTopic(topic)
-            opinion
+            opinionsDao.createOpinion(topicId, context.getUserId(), text, type)
         }
     }
 }

@@ -2,7 +2,6 @@ package com.kropotov.lovehatebackend.db.models
 
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.datetime
-import java.time.LocalDateTime
 
 data class Favorite(
     val id: Int,
@@ -15,10 +14,10 @@ data class Favorite(
 
 object Favorites : Table() {
     val id = integer("id").autoIncrement()
-    val topicId = integer("topicId").nullable()
-    val opinionId = integer("opinionId").nullable()
-    val commentId = integer("commentId").nullable()
-    val userId = integer("userId")
+    val topicId = integer("topic_id").nullable()
+    val opinionId = integer("opinion_id").nullable()
+    val commentId = integer("comment_id").nullable()
+    val userId = integer("user_id")
     val date = datetime("date")
 
     override val primaryKey = PrimaryKey(id)

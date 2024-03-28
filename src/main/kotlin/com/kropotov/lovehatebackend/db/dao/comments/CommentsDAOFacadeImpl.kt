@@ -19,7 +19,8 @@ class CommentsDAOFacadeImpl : CommentsDAOFacade {
 
     override suspend fun getComment(id: Int): Comment? = dbQuery {
         Comments
-            .select { Comments.id eq id }
+            .selectAll()
+            .where { Comments.id eq id }
             .map(::resultRowToComment)
             .singleOrNull()
     }

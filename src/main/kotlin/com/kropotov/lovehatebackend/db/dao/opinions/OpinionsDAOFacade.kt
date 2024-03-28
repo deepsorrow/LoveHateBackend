@@ -3,7 +3,6 @@ package com.kropotov.lovehatebackend.db.dao.opinions
 import com.kropotov.lovehatebackend.db.models.Opinion
 import com.kropotov.lovehatebackend.db.models.OpinionListItem
 import com.kropotov.lovehatebackend.db.models.OpinionType
-import com.kropotov.lovehatebackend.db.models.Topic
 
 interface OpinionsDAOFacade {
     suspend fun getOpinion(id: Int): Opinion?
@@ -16,17 +15,17 @@ interface OpinionsDAOFacade {
 
     suspend fun findOpinionTypes(topicId: Int): List<Pair<OpinionType, Int>>
 
-    suspend fun findLatestOpinions(topicId: Int?, opinionType: OpinionType?, page: Int): List<OpinionListItem>
+    suspend fun findLatestOpinions(userId: Int, topicId: Int?, opinionType: OpinionType?, page: Int): List<OpinionListItem>
 
-    suspend fun findMostLikedOpinions(page: Int): List<Opinion>
+    suspend fun findMostLikedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem>
 
-    suspend fun findMostCondemnedOpinions(page: Int): List<Opinion>
+    suspend fun findMostCondemnedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem>
 
-    suspend fun findMostCommentedOpinions(page: Int): List<Opinion>
+    suspend fun findMostCommentedOpinions(userId: Int, page: Int): List<OpinionListItem>
 
-    suspend fun findFavoriteOpinions(userId: Int, page: Int)
+    suspend fun findFavoriteOpinions(userId: Int, page: Int): List<OpinionListItem>
 
-    suspend fun findUserOpinions(userId: Int, page: Int): List<Topic>
+    suspend fun findUserOpinions(userId: Int, page: Int): List<OpinionListItem>
 
     suspend fun deleteOpinion(id: Int): Boolean
 }

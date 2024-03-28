@@ -9,11 +9,6 @@ enum class OpinionType {
     HATE
 }
 
-data class OpinionTypeCount(
-    val opinionType: OpinionType,
-    val count: Int
-)
-
 data class Opinion(
     val id: Int = 0,
     val topicId: Int,
@@ -30,26 +25,21 @@ data class OpinionListItem(
     val text: String,
     val type: OpinionType,
     val date: String,
-    val likeCount: Int = 0,
-    val dislikeCount: Int = 0,
-    val messagesCount: Int = 0,
+    val likeCount: String = "0",
+    val dislikeCount: String = "0",
     val isFavorite: Boolean = false,
     val isLiked: Boolean = false,
-    val isDisliked: Boolean = false
-)
-
-data class OpinionListResponse(
-    val totalPages: Int,
-    val results: List<OpinionListItem>
+    val isDisliked: Boolean = false,
+    val position: Int
 )
 
 object Opinions : Table() {
     val id = integer("id").autoIncrement()
-    val topicId = integer("topicId")
-    val userId = integer("userId")
+    val topicId = integer("topic_id")
+    val userId = integer("user_id")
     val text = text("text")
     val type = enumeration<OpinionType>("type")
-    val createdAt = datetime("createdAt")
+    val createdAt = datetime("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

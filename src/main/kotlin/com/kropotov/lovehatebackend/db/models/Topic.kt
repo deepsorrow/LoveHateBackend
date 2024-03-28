@@ -10,6 +10,16 @@ data class Topic(
     val createdAt: String
 )
 
+data class TopicOverview(
+    val id: Int,
+    val userId: Int,
+    val title: String,
+    val opinionsCount: Int,
+    val opinionType: OpinionType,
+    val opinionPercent: Int,
+    val createdAt: String
+)
+
 data class TopicPage(
     val id: Int,
     val title: String,
@@ -22,26 +32,11 @@ data class TopicPage(
     val createdAt: String
 )
 
-data class TopicsListResponse(
-    val totalPages: Int,
-    val results: List<Topic>
-)
-
-enum class TopicsSortType {
-    RECENT,
-    NEW,
-    POPULAR,
-    MOST_LOVED,
-    MOST_HATED,
-    FAVORITES,
-    BY_USER_ID
-}
-
 object Topics : Table() {
     val id = integer("id").autoIncrement()
-    val userId = integer("userId")
+    val userId = integer("user_id")
     val title = varchar("title", 128)
-    val createdAt = datetime("createdAt")
+    val createdAt = datetime("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -27,10 +27,10 @@ data class Media(
 
 object Multimedia : Table() {
     val id = integer("id").autoIncrement()
-    val topicId = integer("topicId").nullable()
-    val opinionId = integer("opinionId").nullable()
-    val commentId = integer("commentId").nullable()
-    val srcPath = varchar("srcPath", 256)
+    val topicId = integer("topic_id").nullable()
+    val opinionId = integer("opinion_id").nullable()
+    val commentId = integer("comment_id").nullable()
+    val srcPath = varchar("src_path", 256)
     val mediaSource = enumeration<MediaSource>("source")
     val type = enumeration<MediaType>("type")
 

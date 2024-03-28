@@ -5,6 +5,10 @@ import com.kropotov.lovehatebackend.db.models.*
 interface UsersDAOFacade {
     suspend fun getUser(id: Int): User?
 
+    suspend fun getUserStatistics(id: Int): UserStatistics?
+
+    suspend fun getUsersPageCount(): Int
+
     suspend fun getUser(username: String): User?
 
     suspend fun addUser(username: String, passwordHash: String, email: String? = null): User?
@@ -13,15 +17,15 @@ interface UsersDAOFacade {
 
     suspend fun updateLastLoginAt(id: Int)
 
-    suspend fun getMostActiveUsers(): List<User>
+    suspend fun getMostActiveUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>
 
-    suspend fun getMostIndifferentUsers(): List<User>
+    suspend fun getMostManySidedUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>
 
-    suspend fun getMostTenderheartedUsers(): List<User>
+    suspend fun getMostTenderheartedUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>
 
-    suspend fun getMostSpitefulUsers(): List<Users>
+    suspend fun getMostSpitefulUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>
 
-    suspend fun getMostObsessedUsers(): List<Users>
+    suspend fun getMostObsessedUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>
 
     suspend fun deleteUser(id: Int): Boolean
 }
