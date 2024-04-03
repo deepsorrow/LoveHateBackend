@@ -25,6 +25,7 @@ data class OpinionListItem(
     val text: String,
     val type: OpinionType,
     val date: String,
+    val attachmentUrls: List<String> = listOf(),
     val likeCount: String = "0",
     val dislikeCount: String = "0",
     val isFavorite: Boolean = false,

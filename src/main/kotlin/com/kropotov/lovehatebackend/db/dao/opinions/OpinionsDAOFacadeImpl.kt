@@ -71,58 +71,80 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             }
     }
 
-    override suspend fun findLatestOpinions(userId: Int, topicId: Int?, opinionType: OpinionType?, page: Int): List<OpinionListItem> =
+    override suspend fun findLatestOpinions(
+        userId: Int,
+        topicId: Int?,
+        opinionType: OpinionType?,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem> =
         dbQuery {
             val filter = when {
-                topicId != null && opinionType != null -> "WHERE t.id = $topicId and t.type = ${opinionType.ordinal}"
+                topicId != null && opinionType != null -> "WHERE t.id = $topicId and o.type = ${opinionType.ordinal}"
                 topicId != null && opinionType == null -> "WHERE t.id = $topicId"
-                topicId == null && opinionType != null -> "WHERE t.type = ${opinionType.ordinal}"
+                topicId == null && opinionType != null -> "WHERE o.type = ${opinionType.ordinal}"
                 else -> ""
             }
             selectOpinions(
                 userId = userId,
                 filter = filter,
+                searchQuery = searchQuery.orEmpty(),
                 page = page
             )
         }
 
-    override suspend fun findMostLikedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem> = dbQuery {
+    override suspend fun findMostLikedOpinions(
+        userId: Int,
+        onlyFirst: Boolean,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem> = dbQuery {
         selectOpinions(
             userId = userId,
             orderBy = "ORDER BY like_count DESC, created_at DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page,
             limit = getLimit(onlyFirst)
         )
     }
 
-    override suspend fun findMostCondemnedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem> = dbQuery {
+    override suspend fun findMostCondemnedOpinions(
+        userId: Int,
+        onlyFirst: Boolean,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem> = dbQuery {
         selectOpinions(
             userId = userId,
             orderBy = "ORDER BY dislike_count DESC, created_at DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page,
             limit = getLimit(onlyFirst)
         )
     }
 
-    override suspend fun findMostCommentedOpinions(userId: Int, page: Int): List<OpinionListItem> {
+    override suspend fun findMostCommentedOpinions(userId: Int, searchQuery: String?, page: Int): List<OpinionListItem> {
         TODO("Comments feature not yet implemented")
     }
 
-    override suspend fun findFavoriteOpinions(userId: Int, page: Int) = dbQuery {
+    override suspend fun findFavoriteOpinions(userId: Int, searchQuery: String?, page: Int) = dbQuery {
         selectOpinions(
             userId = userId,
-            filter ="WHERE is_favorite = true",
+            filter = "WHERE f.opinion_id IS NOT NULL",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findUserOpinions(userId: Int, page: Int): List<OpinionListItem> = dbQuery {
-        selectOpinions(
-            userId = userId,
-            filter = "WHERE user_id = $userId",
-            page = page
-        )
-    }
+    override suspend fun findUserOpinions(userId: Int, searchQuery: String?, page: Int): List<OpinionListItem> =
+        dbQuery {
+            selectOpinions(
+                userId = userId,
+                filter = "WHERE user_id = $userId",
+                searchQuery = searchQuery.orEmpty(),
+                page = page
+            )
+        }
 
     override suspend fun deleteOpinion(id: Int): Boolean = dbQuery {
         Opinions.deleteWhere { Opinions.id eq id } > 0
@@ -142,6 +164,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
         filter: String = "",
         orderBy: String = "ORDER BY created_at DESC",
         limit: Int = BATCH_OPINION_AMOUNT,
+        searchQuery: String = "%",
         page: Int
     ) = ("" +
             " WITH TempTable AS (" +
@@ -151,29 +174,44 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             " CASE WHEN f.opinion_id IS NULL THEN False ELSE True END as is_favorite " +
             "" +
             " FROM Opinions o " +
-            " INNER JOIN Topics t " +
-            " ON o.topic_id = t.id " +
-            " INNER JOIN Users u " +
-            " ON o.user_id = u.id " +
-            " LEFT JOIN Favorites f " +
-            " ON o.id = f.opinion_id and f.user_id = $userId " +
-            " LEFT JOIN OpinionReactions opR " +
-            " ON o.id = opR.opinion_id and opR.user_id = $userId" +
-            "), OpinionStats3 AS (" +
+            "   INNER JOIN Topics t " +
+            "       ON o.topic_id = t.id " +
+            "   INNER JOIN Users u " +
+            "       ON o.user_id = u.id " +
+            "   LEFT JOIN Favorites f " +
+            "       ON o.id = f.opinion_id and f.user_id = $userId " +
+            "   LEFT JOIN OpinionReactions opR " +
+            "       ON o.id = opR.opinion_id and opR.user_id = $userId" +
+            " $filter " +
+            " ), OpinionStats3 AS (" +
             " SELECT t.id, t.username, t.title, t.text, t.type, t.created_at," +
             " t.is_liked, t.is_disliked, t.is_favorite, " +
             " COUNT(CASE WHEN opR.type = ${ReactionType.LIKE.ordinal} THEN 1 END) as like_count, " +
             " COUNT(CASE WHEN opR.type = ${ReactionType.DISLIKE.ordinal} THEN 1 END) as dislike_count " +
             " FROM TempTable t " +
-            " LEFT JOIN OpinionReactions opR " +
-            " ON t.id = opR.opinion_id " +
-            " $filter " +
+            "   LEFT JOIN OpinionReactions opR " +
+            "       ON t.id = opR.opinion_id " +
             " GROUP BY (t.id, t.username, t.title, t.text, t.type, t.created_at, t.is_liked, t.is_disliked, t.is_favorite)" +
             " $orderBy) " +
             "" +
-            " SELECT *, ROW_NUMBER() OVER($orderBy) as position FROM OpinionStats3" +
-            " LIMIT $limit OFFSET ${getOffset(page)}")
-        .executeAndMap { mapToOpinionListItem(it) }
+            " SELECT t.id, t.username, t.title, t.text, t.type, t.created_at, t.like_count, t.dislike_count," +
+            " t.is_liked, t.is_disliked, t.is_favorite, STRING_AGG(a.thumbnail_path, ';') as attachment_thumbnail_urls," +
+            " ROW_NUMBER() OVER($orderBy) as position" +
+            " FROM OpinionStats3 t" +
+            "   LEFT JOIN Attachments a " +
+            "       ON t.id = a.opinion_id" +
+            " WHERE t.text LIKE ? OR t.title LIKE ? OR t.username LIKE ?" +
+            " GROUP BY (t.id, t.username, t.title, t.text, t.type, t.created_at, t.like_count, t.dislike_count," +
+            " t.is_liked, t.is_disliked, t.is_favorite)" +
+            " LIMIT $limit OFFSET ${getOffset(page)}").executeAndMap(
+            listOf( // prevent SQL Injection
+                Pair(VarCharColumnType(), "%$searchQuery%"),
+                Pair(VarCharColumnType(), "%$searchQuery%"),
+                Pair(VarCharColumnType(), "%$searchQuery%")
+            )
+        ) {
+            mapToOpinionListItem(it)
+        }
 
     private fun mapToOpinionListItem(row: ResultSet) =
         OpinionListItem(
@@ -188,7 +226,8 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             isFavorite = row.getBoolean("is_favorite"),
             isLiked = row.getBoolean("is_liked"),
             isDisliked = row.getBoolean("is_disliked"),
-            position = row.getInt("position")
+            position = row.getInt("position"),
+            attachmentUrls = row.getString("attachment_thumbnail_urls")?.split(";") ?: listOf()
         )
 
     private fun getOffset(page: Int) = page * Constants.BATCH_TOPIC_AMOUNT

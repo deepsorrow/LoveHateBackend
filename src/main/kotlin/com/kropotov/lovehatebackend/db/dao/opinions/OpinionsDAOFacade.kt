@@ -15,17 +15,33 @@ interface OpinionsDAOFacade {
 
     suspend fun findOpinionTypes(topicId: Int): List<Pair<OpinionType, Int>>
 
-    suspend fun findLatestOpinions(userId: Int, topicId: Int?, opinionType: OpinionType?, page: Int): List<OpinionListItem>
+    suspend fun findLatestOpinions(
+        userId: Int,
+        topicId: Int?,
+        opinionType: OpinionType?,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem>
 
-    suspend fun findMostLikedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem>
+    suspend fun findMostLikedOpinions(
+        userId: Int,
+        onlyFirst: Boolean,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem>
 
-    suspend fun findMostCondemnedOpinions(userId: Int, onlyFirst: Boolean, page: Int): List<OpinionListItem>
+    suspend fun findMostCondemnedOpinions(
+        userId: Int,
+        onlyFirst: Boolean,
+        searchQuery: String?,
+        page: Int
+    ): List<OpinionListItem>
 
-    suspend fun findMostCommentedOpinions(userId: Int, page: Int): List<OpinionListItem>
+    suspend fun findMostCommentedOpinions(userId: Int, searchQuery: String?, page: Int): List<OpinionListItem>
 
-    suspend fun findFavoriteOpinions(userId: Int, page: Int): List<OpinionListItem>
+    suspend fun findFavoriteOpinions(userId: Int, searchQuery: String?, page: Int): List<OpinionListItem>
 
-    suspend fun findUserOpinions(userId: Int, page: Int): List<OpinionListItem>
+    suspend fun findUserOpinions(userId: Int, searchQuery: String?, page: Int): List<OpinionListItem>
 
     suspend fun deleteOpinion(id: Int): Boolean
 }

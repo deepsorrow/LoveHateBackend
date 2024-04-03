@@ -44,15 +44,15 @@ fun SchemaBuilder.opinionRoutes(kodein: DI) {
     query("opinions") {
         description = "Returns opinions sorted by date descending"
         resolver {
-            context: Context, topicId: Int?, opinionType: OpinionType?, listType: OpinionsListType?, onlyFirst: Boolean, page: Int ->
+            context: Context, searchQuery: String?, topicId: Int?, opinionType: OpinionType?, listType: OpinionsListType?, onlyFirst: Boolean, page: Int ->
 
             val totalPages = opinionsDao.getOpinionsPageCount(opinionType)
             val results = when (listType) {
-                OpinionsListType.BY_CURRENT_USER -> opinionsDao.findUserOpinions(context.getUserId(), page)
-                OpinionsListType.BY_FAVORITES -> opinionsDao.findFavoriteOpinions(context.getUserId(), page)
-                OpinionsListType.MOST_LIKED -> opinionsDao.findMostLikedOpinions(context.getUserId(), onlyFirst, page)
-                OpinionsListType.MOST_DISLIKED -> opinionsDao.findMostCondemnedOpinions(context.getUserId(), onlyFirst, page)
-                else -> opinionsDao.findLatestOpinions(context.getUserId(), topicId, opinionType, page)
+                OpinionsListType.BY_CURRENT_USER -> opinionsDao.findUserOpinions(context.getUserId(), searchQuery, page)
+                OpinionsListType.BY_FAVORITES -> opinionsDao.findFavoriteOpinions(context.getUserId(), searchQuery, page)
+                OpinionsListType.MOST_LIKED -> opinionsDao.findMostLikedOpinions(context.getUserId(), onlyFirst, searchQuery, page)
+                OpinionsListType.MOST_DISLIKED -> opinionsDao.findMostCondemnedOpinions(context.getUserId(), onlyFirst, searchQuery, page)
+                else -> opinionsDao.findLatestOpinions(context.getUserId(), topicId, opinionType, searchQuery, page)
             }
             OpinionListResponse(
                 totalPages = totalPages,

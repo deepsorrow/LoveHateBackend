@@ -11,21 +11,21 @@ interface TopicsDAOFacade {
 
     suspend fun editTopic(id: Int, title: String): Boolean
 
-    suspend fun findNewTopics(page: Int): List<TopicOverview>
+    suspend fun findNewTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findRecentTopics(page: Int): List<TopicOverview>
+    suspend fun findRecentTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findMostPopularTopics(page: Int): List<TopicOverview>
+    suspend fun findMostPopularTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findMostLovedTopics(page: Int): List<TopicOverview>
+    suspend fun findMostLovedTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findMostControversialTopics(page: Int): List<TopicOverview>
+    suspend fun findMostControversialTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findMostHatedTopics(page: Int): List<TopicOverview>
+    suspend fun findMostHatedTopics(searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findFavoriteTopics(userId: Int, page: Int): List<TopicOverview>
+    suspend fun findFavoriteTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview>
 
-    suspend fun findUserTopics(userId: Int, page: Int): List<TopicOverview>
+    suspend fun findUserTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview>
 
     suspend fun findSimilarTopics(topicId: Int): List<TopicOverview>
 

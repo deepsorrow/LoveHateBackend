@@ -2,6 +2,7 @@ package com.kropotov.lovehatebackend
 
 import com.apurebase.kgraphql.GraphQL
 import com.kropotov.lovehatebackend.routes.graphql.*
+import com.kropotov.lovehatebackend.routes.mediaMultipartRoutes
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -11,6 +12,7 @@ import org.kodein.di.DI
 
 fun Application.setupMainService(kodein: DI) {
 
+    mediaMultipartRoutes(kodein)
     install(GraphQL) {
         playground = true
         endpoint = "/api/v1/"

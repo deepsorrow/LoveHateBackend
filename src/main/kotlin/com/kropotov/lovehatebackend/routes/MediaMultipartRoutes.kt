@@ -1,7 +1,7 @@
 package com.kropotov.lovehatebackend.routes
 
-import com.kropotov.lovehatebackend.db.dao.media.MediaDAOFacadeImpl
-import com.kropotov.lovehatebackend.db.models.MediaType
+import com.kropotov.lovehatebackend.db.dao.media.AttachmentsDAOFacade
+import com.kropotov.lovehatebackend.utilities.createThumbnail
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -9,52 +9,56 @@ import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import org.kodein.di.DI
+import org.kodein.di.instance
 import java.io.File
 
 const val ROOT_MEDIA = "media"
 const val BLANK_AVATARS_ROOT = "$ROOT_MEDIA/blank_avatars/"
 
-fun Application.mediaMultipartRoutes() = routing {
+fun Application.mediaMultipartRoutes(kodein: DI) = routing {
 
-    val dao = MediaDAOFacadeImpl()
+    val attachmentsDao by kodein.instance<AttachmentsDAOFacade>()
 
     staticFiles(ROOT_MEDIA, File(ROOT_MEDIA))
+    staticFiles("uploads", File("uploads"))
 
-    post("/upload-media") {
+    get("/attachment/{id}") {
+        val attachmentId = call.parameters["id"]?.toInt()
+        if (attachmentId == null) {
+            call.respond(HttpStatusCode.BadRequest)
+        } else {
+            val url = attachmentsDao.getFullSizeMediaUrl(attachmentId)!!
+            call.respond(HttpStatusCode.OK, url)
+        }
+    }
+    post("/uploadOpinionAttachments") {
         try {
             var fileName = ""
-            var topicId = 0
             var opinionId = 0
-            var commentId = 0
-            val multipartData = call.receiveMultipart()
 
+            val multipartData = call.receiveMultipart()
             multipartData.forEachPart { part ->
                 when (part) {
                     is PartData.FormItem -> {
                         val value = part.value.toInt()
                         when (part.name) {
-                            "topicId" -> topicId = value
-                            "opinionId" -> opinionId = value
-                            "commentId" -> commentId = value
+                            "id" -> opinionId = value
                         }
                     }
                     is PartData.FileItem -> {
-                        File("uploads").mkdirs()
                         fileName = part.originalFileName as String
                         val fileBytes = part.streamProvider().readBytes()
-                        val filePath = "uploads/$fileName"
-                        File(filePath).writeBytes(fileBytes)
+                        val filePath = "uploads/opinions/$opinionId/$fileName"
+                        val thumbnailPath = "uploads/opinions/thumbnails/$opinionId/$fileName"
+                        File(filePath).run {
+                            parentFile.mkdirs()
 
-                        val mediaType = if (filePath.endsWith(".gif")) {
-                            MediaType.GIF
-                        } else if (filePath.endsWith(".png") || filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
-                            MediaType.IMAGE
-                        } else if (filePath.endsWith(".mp4")|| filePath.endsWith(".webm")) {
-                            MediaType.VIDEO
-                        } else {
-                            MediaType.UNKNOWN
+                            writeBytes(fileBytes)
+                            createThumbnail(this, thumbnailPath)
                         }
-                        dao.addMedia(topicId, opinionId, commentId, filePath, mediaType)
+
+                        attachmentsDao.addMedia(opinionId, thumbnailPath, filePath)
                     }
                     else -> {}
                 }

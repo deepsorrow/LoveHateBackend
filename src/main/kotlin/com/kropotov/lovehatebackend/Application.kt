@@ -7,8 +7,8 @@ import com.kropotov.lovehatebackend.db.dao.favorites.FavoritesDAOFacade
 import com.kropotov.lovehatebackend.db.dao.favorites.FavoritesDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.feedback.FeedbackDAOFacade
 import com.kropotov.lovehatebackend.db.dao.feedback.FeedbackDAOFacadeImpl
-import com.kropotov.lovehatebackend.db.dao.media.MediaDAOFacade
-import com.kropotov.lovehatebackend.db.dao.media.MediaDAOFacadeImpl
+import com.kropotov.lovehatebackend.db.dao.media.AttachmentsDAOFacade
+import com.kropotov.lovehatebackend.db.dao.media.AttachmentsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacade
 import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.reactions.OpinionReactionDAOFacade
@@ -37,11 +37,11 @@ fun Application.module() {
         bind<TopicsDAOFacade>() with singleton { TopicsDAOFacadeImpl() }
         bind<OpinionsDAOFacade>() with singleton { OpinionsDAOFacadeImpl() }
         bind<OpinionReactionDAOFacade>() with singleton { OpinionReactionDAOFacadeImpl() }
-        bind<MediaDAOFacade>() with singleton { MediaDAOFacadeImpl() }
+        bind<AttachmentsDAOFacade>() with singleton { AttachmentsDAOFacadeImpl() }
         bind<FeedbackDAOFacade>() with singleton { FeedbackDAOFacadeImpl() }
     }
 
     setupAuthService(kodein)
     setupMainService(kodein)
-    mediaMultipartRoutes()
+    mediaMultipartRoutes(kodein)
 }

@@ -148,8 +148,8 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
             " WITH TopicStats AS (" +
             " SELECT u.id, u.username, u.photo_url, COUNT(*) as topics_count " +
             " FROM Users as u " +
-            "  LEFT JOIN Topics t " +
-            "    ON u.id = t.user_id " +
+            "   LEFT JOIN Topics t " +
+            "       ON u.id = t.user_id " +
             " GROUP BY u.id, u.username" +
             " ), " +
             " OpinionStats AS ( " +
@@ -157,17 +157,16 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
             " (SELECT COUNT(*) FROM Opinions o1 where o1.user_id = u.id and o1.type = ${OpinionType.LOVE.ordinal}) as loveOpinionsCount, " +
             " (SELECT COUNT(*) FROM Opinions o2 where o2.user_id = u.id and o2.type = ${OpinionType.HATE.ordinal}) as hateOpinionsCount " +
             " FROM Users as u " +
-            "  LEFT JOIN Opinions o " +
+            "   LEFT JOIN Opinions o " +
             " ON u.id = o.user_id " +
             " GROUP BY u.id" +
             " )," +
             " OpinionStats2 AS (" +
             " SELECT *," +
-            " 100 - CASE " +
-            "     WHEN loveOpinionsCount > hateOpinionsCount THEN hateOpinionsCount * 100 / loveOpinionsCount " +
-            "     WHEN hateOpinionsCount > loveOpinionsCount THEN loveOpinionsCount * 100 / hateOpinionsCount " +
-            " ELSE 50 " +
-            " END as opinion_percent," +
+            " CAST(CASE" +
+            "   WHEN loveOpinionsCount > hateOpinionsCount THEN loveOpinionsCount / (opinions_count * 1.0)" +
+            "   ELSE hateOpinionsCount / (opinions_count * 1.0)" +
+            " END * 100 as int) as opinion_percent," +
             " CASE WHEN loveOpinionsCount > hateOpinionsCount THEN 0" +
             "      WHEN hateOpinionsCount > loveOpinionsCount THEN 2" +
             "      ELSE 1" +

@@ -44,63 +44,71 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         } > 0
     }
 
-    override suspend fun findNewTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findNewTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             orderBy = "created_at DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findRecentTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findRecentTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         val extraFieldName = "lastOpinionDate"
         selectTopicStats(
             extraFieldExp = "MAX(o.created_at) as $extraFieldName,",
             extraFieldName = "$extraFieldName,",
             orderBy = "$extraFieldName DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findMostPopularTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findMostPopularTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             orderBy = "opinions_count DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findMostLovedTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findMostLovedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             orderBy = "love_index DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findMostControversialTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findMostControversialTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             orderBy = "50 - opinion_percent, opinion_count DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findMostHatedTopics(page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findMostHatedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             orderBy = "love_index",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findFavoriteTopics(userId: Int, page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findFavoriteTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             extraTable = "INNER JOIN Favorites f ON t.id = f.topic_id AND f.user_id = $userId",
             orderBy = "created_at DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
 
-    override suspend fun findUserTopics(userId: Int, page: Int): List<TopicOverview> = dbQuery {
+    override suspend fun findUserTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
             filter = "WHERE t.user_id = $userId",
             orderBy = "created_at DESC",
+            searchQuery = searchQuery.orEmpty(),
             page = page
         )
     }
@@ -128,6 +136,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         extraFieldName: String = "",
         orderBy: String = "opinions_count DESC",
         filter: String = "",
+        searchQuery: String = "%",
         page: Int = 0
     ) = ("" +
             " WITH TopicsOpinionsCount AS (" +
@@ -147,11 +156,10 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
             " WHEN hateOpinionsCount > loveOpinionsCount THEN ${OpinionType.HATE.ordinal} " +
             " ELSE ${OpinionType.INDIFFERENCE.ordinal} " +
             " END as opinion_type," +
-            " 100 - CASE " +
-            " WHEN loveOpinionsCount > hateOpinionsCount THEN hateOpinionsCount * 100 / loveOpinionsCount " +
-            " WHEN hateOpinionsCount > loveOpinionsCount THEN loveOpinionsCount * 100 / hateOpinionsCount " +
-            " ELSE 50 " +
-            " END as opinion_percent," +
+            " CAST(CASE" +
+            "   WHEN loveOpinionsCount > hateOpinionsCount THEN loveOpinionsCount / (opinions_count * 1.0)" +
+            "   ELSE hateOpinionsCount / (opinions_count * 1.0)" +
+            " END * 100 as int) as opinion_percent," +
             " loveOpinionsCount / COALESCE(NULLIF(hateOpinionsCount, 0), 1) as love_index" +
             " FROM TopicsOpinionsCount t " +
             " $extraTable " +
@@ -159,7 +167,9 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
             " ORDER BY $orderBy " +
             " LIMIT $BATCH_TOPIC_AMOUNT OFFSET ${getOffset(page)})" +
             "" +
-            " SELECT * FROM TopicsOpinionsCount2").executeAndMap { resultRowToTopicStats(it) }
+            " SELECT * FROM TopicsOpinionsCount2 WHERE title LIKE ?").executeAndMap(
+                listOf(Pair(VarCharColumnType(), "%$searchQuery%")) // prevent SQL Injection
+            ) { resultRowToTopicStats(it) }
 
     private fun resultRowToTopicStats(row: ResultSet) = TopicOverview(
         id = row.getInt("id"),
@@ -169,6 +179,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         opinionPercent = row.getInt("opinion_percent"),
         userId = row.getInt("user_id"),
         createdAt = row.getString("created_at").split(".")[0],
+        imageUrl = ""
     )
 
     private fun getOffset(page: Int) = page * BATCH_TOPIC_AMOUNT

@@ -14,6 +14,7 @@ data class TopicOverview(
     val id: Int,
     val userId: Int,
     val title: String,
+    val imageUrl: String,
     val opinionsCount: Int,
     val opinionType: OpinionType,
     val opinionPercent: Int,
@@ -28,6 +29,7 @@ data class TopicPage(
     val percent: Int,
     val author: String,
     val authorOpinionType: OpinionType,
+    val attachmentsUrls: List<String> = listOf(),
     val isFavorite: Boolean,
     val createdAt: String
 )
