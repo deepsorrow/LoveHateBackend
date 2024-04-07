@@ -18,6 +18,6 @@ object DatabaseSingleton {
         }
     }
 
-    suspend fun <T> dbQuery(block: suspend () -> T): T =
+    suspend fun <T> dbQuery(block: suspend Transaction.() -> T): T =
         newSuspendedTransaction(Dispatchers.IO) { block() }
 }

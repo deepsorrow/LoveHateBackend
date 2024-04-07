@@ -46,32 +46,21 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
             .singleOrNull()
     }
 
-    override suspend fun addUser(username: String, passwordHash: String, email: String?): User? = dbQuery {
-        val insertOpinion = Users.insert {
-            it[this.username] = username
-            it[this.passwordHash] = passwordHash
-            it[this.email] = email
-            it[this.role] = UserRole.USER
-            it[this.createdAt] = LocalDateTime.now()
-        }
-        insertOpinion.resultedValues?.singleOrNull()?.let(::resultRowToUser)
-    }
-
     override suspend fun addUser(
         username: String,
-        password: String,
         passwordHash: String,
         email: String?,
     ): User? = dbQuery {
         val insertOpinion = Users.insert {
             it[this.username] = username
-            it[this.password] = password
             it[this.passwordHash] = passwordHash
             it[this.passwordUpdatedAt] = null
             it[this.photoUrl] = null
             it[this.email] = email
             it[this.role] = UserRole.USER
+            it[this.origin] = UserOrigin.APP
             it[this.disabled] = false
+            it[this.isRegistered] = true
             it[this.lastLoginAt] = LocalDateTime.now()
             it[this.createdAt] = LocalDateTime.now()
         }
@@ -99,7 +88,7 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
 
     override suspend fun getMostManySidedUsers(onlyFirst: Boolean, page: Int) = dbQuery {
         selectUserStatistics(
-            orderBy = "ORDER BY 50 - opinion_percent DESC, score DESC",
+            orderBy = "ORDER BY opinion_percent, score DESC",
             limit = getLimit(onlyFirst),
             page = page
         )
@@ -109,14 +98,16 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
         selectUserStatistics(
             orderBy = "ORDER BY opinion_percent DESC, score DESC",
             limit = getLimit(onlyFirst),
+            filter = "WHERE o.opinion_type = ${OpinionType.LOVE.ordinal}",
             page = page
         )
     }
 
     override suspend fun getMostSpitefulUsers(onlyFirst: Boolean, page: Int) = dbQuery {
         selectUserStatistics(
-            orderBy = "ORDER BY opinion_percent, score DESC",
+            orderBy = "ORDER BY opinion_percent DESC, score DESC",
             limit = getLimit(onlyFirst),
+            filter = "WHERE o.opinion_type = ${OpinionType.HATE.ordinal}",
             page = page
         )
     }
@@ -132,7 +123,6 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
     private fun resultRowToUser(row: ResultRow) = User(
         id = row[Users.id],
         username = row[Users.username],
-        password = row[Users.password],
         passwordHash = row[Users.passwordHash],
         email = row[Users.email],
         role = row[Users.role],
@@ -145,34 +135,64 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
         orderBy: String = "ORDER BY score DESC",
         page: Int = 0
     ) = ("" +
-            " WITH TopicStats AS (" +
-            " SELECT u.id, u.username, u.photo_url, COUNT(*) as topics_count " +
-            " FROM Users as u " +
-            "   LEFT JOIN Topics t " +
-            "       ON u.id = t.user_id " +
+            " WITH OpinionsMinCreatedDate AS ( " +
+            " SELECT o.topic_id, MIN(o.created_at) as created_at" +
+            " FROM Opinions o " +
+            " GROUP BY o.topic_id" +
+            " ), " +
+            " TopicsWithAuthorUserId AS ( " +
+            " SELECT oMinDate.topic_id, MIN(o.user_id) as user_id" +
+            " FROM OpinionsMinCreatedDate oMinDate" +
+            "   LEFT JOIN Opinions o" +
+            "       ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at " +
+            " GROUP BY oMinDate.topic_id" +
+            " ), " +
+            " TopicStats AS ( " +
+            " SELECT u.id, u.username, u.photo_url, COUNT(t.topic_id) as topics_count" +
+            " FROM Users as u" +
+            "   LEFT JOIN TopicsWithAuthorUserId t" +
+            "       ON u.id = t.user_id" +
+            " WHERE u.is_registered = true" +
             " GROUP BY u.id, u.username" +
             " ), " +
-            " OpinionStats AS ( " +
-            " SELECT u.id, COUNT(*) as opinions_count, " +
-            " (SELECT COUNT(*) FROM Opinions o1 where o1.user_id = u.id and o1.type = ${OpinionType.LOVE.ordinal}) as loveOpinionsCount, " +
-            " (SELECT COUNT(*) FROM Opinions o2 where o2.user_id = u.id and o2.type = ${OpinionType.HATE.ordinal}) as hateOpinionsCount " +
-            " FROM Users as u " +
-            "   LEFT JOIN Opinions o " +
-            " ON u.id = o.user_id " +
+            " LoveStats AS (" +
+            " SELECT u.id as user_id, COUNT(o.id) as love_opinions_count" +
+            " FROM Users u" +
+            "   LEFT JOIN Opinions o" +
+            "       ON o.user_id = u.id and o.type = ${OpinionType.LOVE.ordinal}" +
             " GROUP BY u.id" +
             " )," +
-            " OpinionStats2 AS (" +
-            " SELECT *," +
-            " CAST(CASE" +
-            "   WHEN loveOpinionsCount > hateOpinionsCount THEN loveOpinionsCount / (opinions_count * 1.0)" +
-            "   ELSE hateOpinionsCount / (opinions_count * 1.0)" +
-            " END * 100 as int) as opinion_percent," +
-            " CASE WHEN loveOpinionsCount > hateOpinionsCount THEN 0" +
-            "      WHEN hateOpinionsCount > loveOpinionsCount THEN 2" +
-            "      ELSE 1" +
-            " END as opinion_type " +
-            " FROM OpinionStats" +
+            " HateStats AS (" +
+            " SELECT u.id as user_id, COUNT(o.id) as hate_opinions_count" +
+            " FROM Users u" +
+            " LEFT JOIN Opinions o" +
+            "    ON o.user_id = u.id and o.type = ${OpinionType.HATE.ordinal}" +
+            " GROUP BY u.id" +
             " )," +
+            " OpinionStats AS (" +
+            " SELECT u.id, COUNT(o.id) as opinions_count, l.love_opinions_count, h.hate_opinions_count" +
+            " FROM Users u" +
+            "   LEFT JOIN Opinions o" +
+            "       ON o.user_id = u.id" +
+            "   LEFT JOIN LoveStats l" +
+            "       ON l.user_id = u.id" +
+            "   LEFT JOIN HateStats h" +
+            "       ON h.user_id = u.id" +
+            "   GROUP BY u.id, l.love_opinions_count, h.hate_opinions_count" +
+            " ), " +
+            " OpinionStats2 AS (" +
+            " SELECT *, " +
+            " CAST(CASE " +
+            "      WHEN opinions_count = 0 THEN 0" +
+            "      WHEN love_opinions_count > hate_opinions_count THEN love_opinions_count / (opinions_count * 1.0)" +
+            "      ELSE hate_opinions_count / (opinions_count * 1.0)" +
+            " END * 100 as int) as opinion_percent," +
+            " CASE WHEN love_opinions_count > hate_opinions_count THEN ${OpinionType.LOVE.ordinal}" +
+            "      WHEN hate_opinions_count > love_opinions_count THEN ${OpinionType.HATE.ordinal}" +
+            "      ELSE ${OpinionType.INDIFFERENCE.ordinal}" +
+            " END as opinion_type" +
+            " FROM OpinionStats" +
+            " ), " +
             " OpinionStats3 AS (" +
             " SELECT t.id, t.username, t.topics_count, t.photo_url, o.opinions_count," +
             " o.opinion_percent, o.opinion_type, t.topics_count * 10 + o.opinions_count * 4 as score" +

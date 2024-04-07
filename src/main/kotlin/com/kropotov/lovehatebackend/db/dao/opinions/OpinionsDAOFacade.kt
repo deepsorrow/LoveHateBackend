@@ -7,8 +7,16 @@ import com.kropotov.lovehatebackend.db.models.OpinionType
 interface OpinionsDAOFacade {
     suspend fun getOpinion(id: Int): Opinion?
 
-    suspend fun getOpinionsPageCount(opinionType: OpinionType?): Int
+    suspend fun getOpinionsPageCount(
+        userId: Int?,
+        topicId: Int?,
+        opinionType: OpinionType?,
+        byFavorites: Boolean,
+        searchQuery: String?
+    ): Int
+
     suspend fun getTopicAuthorOpinion(topicId: Int): Opinion
+
     suspend fun createOpinion(topicId: Int, userId: Int, text: String, type: OpinionType): Opinion?
 
     suspend fun editOpinion(id: Int, text: String): Boolean

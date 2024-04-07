@@ -34,7 +34,7 @@ fun Application.mediaMultipartRoutes(kodein: DI) = routing {
     }
     post("/uploadOpinionAttachments") {
         try {
-            var fileName = ""
+            var fileName: String
             var opinionId = 0
 
             val multipartData = call.receiveMultipart()
@@ -64,7 +64,7 @@ fun Application.mediaMultipartRoutes(kodein: DI) = routing {
                 }
             }
 
-            call.respond(HttpStatusCode.Created, fileName)
+            call.respond(HttpStatusCode.Created)
         } catch (ex: Exception) {
             ex.printStackTrace()
             call.respond(HttpStatusCode.BadRequest, ex.message ?: "")

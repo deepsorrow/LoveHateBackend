@@ -6,9 +6,8 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.mortennobel.imagescaling.AdvancedResizeOp
 import com.mortennobel.imagescaling.MultiStepRescaleOp
 import io.ktor.server.auth.jwt.*
-import org.jetbrains.exposed.sql.IColumnType
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
-import java.awt.image.BufferedImage
 import java.io.File
 import java.sql.ResultSet
 import javax.imageio.ImageIO
@@ -65,3 +64,8 @@ fun createThumbnail(sourceFile: File, destLocation: String): File {
     bufferedImage.flush()
     return destFile
 }
+
+class InsensitiveLikeOp(expr1: Expression<*>, expr2: Expression<*>) : ComparisonOp(expr1, expr2, "ILIKE")
+
+infix fun <T : String?> ExpressionWithColumnType<T>.ilike(pattern: String): Op<Boolean> =
+    InsensitiveLikeOp(this, QueryParameter(pattern, columnType))

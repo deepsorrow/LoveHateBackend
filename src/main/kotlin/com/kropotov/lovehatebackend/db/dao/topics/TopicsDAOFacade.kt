@@ -5,7 +5,7 @@ import com.kropotov.lovehatebackend.db.models.TopicOverview
 interface TopicsDAOFacade {
     suspend fun getTopicOverview(id: Int): TopicOverview?
 
-    suspend fun getTopicsPageCount(): Int
+    suspend fun getTopicsPageCount(userId: Int?, searchQuery: String?): Int
 
     suspend fun addNewTopic(title: String, userId: Int): Int?
 
@@ -28,6 +28,8 @@ interface TopicsDAOFacade {
     suspend fun findUserTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview>
 
     suspend fun findSimilarTopics(topicId: Int): List<TopicOverview>
+
+    suspend fun findTopicAttachments(topicId: Int): List<String>
 
     suspend fun deleteTopic(id: Int): Boolean
 }

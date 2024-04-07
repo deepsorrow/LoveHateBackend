@@ -1,24 +1,14 @@
 package com.kropotov.lovehatebackend.db.models
 
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.javatime.datetime
-
-data class Topic(
-    val id: Int,
-    val userId: Int,
-    val title: String,
-    val createdAt: String
-)
 
 data class TopicOverview(
     val id: Int,
-    val userId: Int,
     val title: String,
-    val imageUrl: String,
+    val thumbnailUrl: String,
     val opinionsCount: Int,
     val opinionType: OpinionType,
-    val opinionPercent: Int,
-    val createdAt: String
+    val opinionPercent: Int
 )
 
 data class TopicPage(
@@ -36,9 +26,7 @@ data class TopicPage(
 
 object Topics : Table() {
     val id = integer("id").autoIncrement()
-    val userId = integer("user_id")
     val title = varchar("title", 128)
-    val createdAt = datetime("created_at")
 
     override val primaryKey = PrimaryKey(id)
 }

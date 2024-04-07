@@ -46,7 +46,14 @@ fun SchemaBuilder.opinionRoutes(kodein: DI) {
         resolver {
             context: Context, searchQuery: String?, topicId: Int?, opinionType: OpinionType?, listType: OpinionsListType?, onlyFirst: Boolean, page: Int ->
 
-            val totalPages = opinionsDao.getOpinionsPageCount(opinionType)
+            val totalPages = opinionsDao.getOpinionsPageCount(
+                userId = context.getUserId()
+                    .takeIf { listType == OpinionsListType.BY_CURRENT_USER || listType == OpinionsListType.BY_FAVORITES },
+                topicId = topicId,
+                opinionType = opinionType,
+                byFavorites = listType == OpinionsListType.BY_FAVORITES,
+                searchQuery = searchQuery
+            )
             val results = when (listType) {
                 OpinionsListType.BY_CURRENT_USER -> opinionsDao.findUserOpinions(context.getUserId(), searchQuery, page)
                 OpinionsListType.BY_FAVORITES -> opinionsDao.findFavoriteOpinions(context.getUserId(), searchQuery, page)

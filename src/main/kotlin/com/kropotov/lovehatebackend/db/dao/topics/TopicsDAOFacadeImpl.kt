@@ -8,7 +8,6 @@ import com.kropotov.lovehatebackend.utilities.executeAndMap
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.sql.ResultSet
-import java.time.LocalDateTime
 import kotlin.math.floor
 
 class TopicsDAOFacadeImpl : TopicsDAOFacade {
@@ -16,26 +15,46 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
     override suspend fun addNewTopic(title: String, userId: Int): Int? = dbQuery {
         val insertTopic = Topics.insert {
             it[Topics.title] = title
-            it[Topics.userId] = userId
-            it[createdAt] = LocalDateTime.now()
         }
         insertTopic.resultedValues?.singleOrNull()?.let { it[Topics.id] }
     }
 
     override suspend fun getTopicOverview(id: Int): TopicOverview? = dbQuery {
         selectTopicStats(
-            filter = "WHERE t.id = $id"
+            filterEnd = "AND t.id = $id"
         ).firstOrNull()
     }
 
-    override suspend fun getTopicsPageCount(): Int {
-        val topicsCount = dbQuery {
-            Topics
-                .selectAll()
-                .count()
+    override suspend fun getTopicsPageCount(userId: Int?, searchQuery: String?): Int = dbQuery {
+        val filterUserId = if (userId != null) {
+            "WHERE user_id = $userId"
+        } else {
+            ""
         }
 
-        return floor(topicsCount.toDouble() / BATCH_TOPIC_AMOUNT.toDouble()).toInt()
+        val topicsCount = ("" +
+                " WITH OpinionsMinCreatedDate AS ( " +
+                " SELECT o.topic_id, MIN(o.created_at) as created_at " +
+                " FROM Opinions o " +
+                " GROUP BY o.topic_id " +
+                " ),  " +
+                " TopicsWithAuthorOpinion AS ( " +
+                " SELECT oMinDate.topic_id, MIN(o.user_id) as user_id, MIN(o.created_at) as created_at " +
+                " FROM OpinionsMinCreatedDate oMinDate " +
+                "    LEFT JOIN Opinions o " +
+                "        ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at" +
+                " $filterUserId " +
+                " GROUP BY oMinDate.topic_id)" +
+                "" +
+                " SELECT COUNT(*) " +
+                " FROM TopicsWithAuthorOpinion t" +
+                "   LEFT JOIN Topics tt " +
+                "       ON t.topic_id = tt.id" +
+                " WHERE tt.title iLIKE ?")
+            .executeAndMap(listOf(Pair(VarCharColumnType(), "%$searchQuery%"))) { it.getInt("count") }
+            .first()
+
+        floor(topicsCount.toDouble() / BATCH_TOPIC_AMOUNT.toDouble()).toInt()
     }
 
     override suspend fun editTopic(id: Int, title: String): Boolean = dbQuery {
@@ -46,7 +65,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findNewTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            orderBy = "created_at DESC",
+            orderBy = "t.created_at DESC",
             searchQuery = searchQuery.orEmpty(),
             page = page
         )
@@ -73,7 +92,8 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findMostLovedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            orderBy = "love_index DESC",
+            orderBy = "opinion_percent DESC, hate_opinions_count DESC",
+            filterEnd = "AND opinion_type = ${OpinionType.LOVE.ordinal}",
             searchQuery = searchQuery.orEmpty(),
             page = page
         )
@@ -89,7 +109,8 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findMostHatedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            orderBy = "love_index",
+            orderBy = "opinion_percent DESC, hate_opinions_count DESC",
+            filterEnd = "AND opinion_type = ${OpinionType.HATE.ordinal}",
             searchQuery = searchQuery.orEmpty(),
             page = page
         )
@@ -106,7 +127,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findUserTopics(userId: Int, searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            filter = "WHERE t.user_id = $userId",
+            filterBegin = "WHERE user_id = $userId",
             orderBy = "created_at DESC",
             searchQuery = searchQuery.orEmpty(),
             page = page
@@ -117,13 +138,26 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         // TODO: Migrate to DBO SQL Function for better performance
         val topicTitle = getTopicOverview(topicId)?.title.orEmpty()
         selectTopicStats(
-            filter = "WHERE t.id != $topicId"
+            filterEnd = "AND t.id != $topicId"
         ).map {
             StringSimilarity.similarity(topicTitle, it.title) to it
         }
-            .sortedBy { it.first }
+            .sortedByDescending { it.first }
             .take(3)
             .map { it.second }
+    }
+
+    override suspend fun findTopicAttachments(topicId: Int): List<String> = dbQuery {
+        Topics
+            .leftJoin(Opinions, { id }, { Opinions.topicId })
+            .leftJoin(Attachments, { Opinions.id }, { opinionId })
+            .select(Attachments.thumbnailPath).where {
+                Topics.id eq topicId
+            }
+            .orderBy((Opinions.createdAt to SortOrder.DESC), (Attachments.id to SortOrder.DESC))
+            .mapNotNull {
+                it[Attachments.thumbnailPath]
+            }
     }
 
     override suspend fun deleteTopic(id: Int): Boolean = dbQuery {
@@ -135,39 +169,85 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         extraFieldExp: String = "",
         extraFieldName: String = "",
         orderBy: String = "opinions_count DESC",
-        filter: String = "",
+        filterBegin: String = "",
+        filterEnd: String = "",
         searchQuery: String = "%",
         page: Int = 0
     ) = ("" +
-            " WITH TopicsOpinionsCount AS (" +
-            " SELECT " +
-            " t.id, t.title, t.user_id, t.created_at, $extraFieldExp " +
-            " COUNT(o.topic_id) as opinions_count, " +
-            " (SELECT COUNT(*) FROM Opinions o1 where o1.topic_id = t.id and o1.type = ${OpinionType.LOVE.ordinal}) as loveOpinionsCount," +
-            " (SELECT COUNT(*) FROM Opinions o2 where o2.topic_id = t.id and o2.type = ${OpinionType.HATE.ordinal}) as hateOpinionsCount " +
-            " FROM Topics t " +
-            " LEFT JOIN Opinions o ON t.id = o.topic_id " +
-            " GROUP BY t.id, t.user_id, t.title, t.created_at" +
+            " WITH OpinionsMinCreatedDate AS (" +
+            " SELECT o.topic_id, MIN(o.created_at) as created_at" +
+            " FROM Opinions o" +
+            " GROUP BY o.topic_id" +
+            " ), " +
+            " TopicsWithAuthorOpinion AS (" +
+            " SELECT oMinDate.topic_id, MIN(o.user_id) as user_id, MIN(o.created_at) as created_at" +
+            " FROM OpinionsMinCreatedDate oMinDate" +
+            "   LEFT JOIN Opinions o" +
+            "       ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at" +
+            " $filterBegin" +
+            " GROUP BY oMinDate.topic_id" +
+            " ), " +
+            " LoveStats AS (" +
+            " SELECT o.topic_id, COUNT(o.id) as love_opinions_count" +
+            " FROM Opinions o" +
+            " WHERE o.type = ${OpinionType.LOVE.ordinal}" +
+            " GROUP BY o.topic_id" +
+            " )," +
+            " HateStats AS (" +
+            " SELECT o.topic_id, COUNT(o.id) as hate_opinions_count" +
+            " FROM Opinions o" +
+            " WHERE o.type = ${OpinionType.HATE.ordinal}" +
+            " GROUP BY o.topic_id" +
+            " )," +
+            " TopicsOpinionsCount AS (" +
+            " SELECT t2.id, t2.title, t.user_id, MIN(t.created_at) as created_at, $extraFieldExp " +
+            " COUNT(o.topic_id) as opinions_count, l.love_opinions_count, h.hate_opinions_count " +
+            "   FROM TopicsWithAuthorOpinion t " +
+            "       LEFT JOIN Topics t2" +
+            "           ON t.topic_id = t2.id" +
+            "       LEFT JOIN Opinions o " +
+            "           ON t.topic_id = o.topic_id" +
+            "       LEFT JOIN LoveStats l" +
+            "           ON t.topic_id = l.topic_id" +
+            "       LEFT JOIN HateStats h" +
+            "           ON t.topic_id = h.topic_id " +
+            " GROUP BY t2.id, t2.title, t.user_id, l.love_opinions_count, h.hate_opinions_count" +
             " ), TopicsOpinionsCount2 AS (" +
             " SELECT " +
-            " t.id, t.title, t.user_id, t.created_at, t.opinions_count, $extraFieldName " +
+            " t.id, t.title, t.opinions_count, love_opinions_count, hate_opinions_count, t.created_at, $extraFieldName " +
             " CASE " +
-            " WHEN loveOpinionsCount > hateOpinionsCount THEN ${OpinionType.LOVE.ordinal} " +
-            " WHEN hateOpinionsCount > loveOpinionsCount THEN ${OpinionType.HATE.ordinal} " +
+            " WHEN love_opinions_count > hate_opinions_count THEN ${OpinionType.LOVE.ordinal} " +
+            " WHEN hate_opinions_count > love_opinions_count THEN ${OpinionType.HATE.ordinal} " +
             " ELSE ${OpinionType.INDIFFERENCE.ordinal} " +
             " END as opinion_type," +
             " CAST(CASE" +
-            "   WHEN loveOpinionsCount > hateOpinionsCount THEN loveOpinionsCount / (opinions_count * 1.0)" +
-            "   ELSE hateOpinionsCount / (opinions_count * 1.0)" +
-            " END * 100 as int) as opinion_percent," +
-            " loveOpinionsCount / COALESCE(NULLIF(hateOpinionsCount, 0), 1) as love_index" +
-            " FROM TopicsOpinionsCount t " +
-            " $extraTable " +
-            " $filter " +
+            "   WHEN love_opinions_count > hate_opinions_count THEN love_opinions_count / (opinions_count * 1.0)" +
+            "   ELSE hate_opinions_count / (opinions_count * 1.0)" +
+            " END * 100 as int) as opinion_percent" +
+            "   FROM TopicsOpinionsCount t " +
+            "   $extraTable " +
             " ORDER BY $orderBy " +
-            " LIMIT $BATCH_TOPIC_AMOUNT OFFSET ${getOffset(page)})" +
-            "" +
-            " SELECT * FROM TopicsOpinionsCount2 WHERE title LIKE ?").executeAndMap(
+            " )," +
+            " TopicLastAttachment AS (" +
+            " SELECT t.id as topic_id, MAX(a.id) as last_attachment_id" +
+            "   FROM Topics t" +
+            "       LEFT JOIN Opinions o" +
+            "           ON t.id = o.topic_id" +
+            "       LEFT JOIN Attachments a" +
+            "           ON o.id = a.opinion_id" +
+            " GROUP BY t.id" +
+            " ORDER BY MAX(o.created_at), MAX(a.id)" +
+            " )" +
+            " SELECT t.id, t.title, t.love_opinions_count, t.hate_opinions_count, t.opinions_count," +
+            " $extraFieldName t.opinion_type, t.opinion_percent, a.thumbnail_path " +
+            " FROM TopicsOpinionsCount2 t" +
+            "   LEFT JOIN TopicLastAttachment la" +
+            "       ON t.id = la.topic_id" +
+            "   LEFT JOIN Attachments a" +
+            "       ON la.last_attachment_id = a.id" +
+            " WHERE t.title iLIKE ? $filterEnd" +
+            " ORDER BY $orderBy" +
+            " LIMIT $BATCH_TOPIC_AMOUNT OFFSET ${getOffset(page)}").executeAndMap(
                 listOf(Pair(VarCharColumnType(), "%$searchQuery%")) // prevent SQL Injection
             ) { resultRowToTopicStats(it) }
 
@@ -177,9 +257,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         opinionsCount = row.getInt("opinions_count"),
         opinionType = OpinionType.entries[row.getInt("opinion_type")],
         opinionPercent = row.getInt("opinion_percent"),
-        userId = row.getInt("user_id"),
-        createdAt = row.getString("created_at").split(".")[0],
-        imageUrl = ""
+        thumbnailUrl = row.getString("thumbnail_path").orEmpty()
     )
 
     private fun getOffset(page: Int) = page * BATCH_TOPIC_AMOUNT

@@ -70,9 +70,10 @@ fun SchemaBuilder.topicRoutes(kodein: DI) {
         description = "Returns detailed data about topic for page"
         resolver { context: Context, id: Int ->
             val topic = topicsDao.getTopicOverview(id)!!
-            val author = usersDao.getUser(topic.userId)?.username.orEmpty()
             val authorOpinion = opinionsDao.getTopicAuthorOpinion(id)
+            val author = usersDao.getUser(authorOpinion.userId)?.username.orEmpty()
             val isFavorite = favoritesDao.getFavorite(context.getUserId(), id, null, null) != null
+            val attachmentsUrl = topicsDao.findTopicAttachments(id)
             TopicPage(
                 id = id,
                 title = topic.title,
@@ -82,7 +83,8 @@ fun SchemaBuilder.topicRoutes(kodein: DI) {
                 author = author,
                 authorOpinionType = authorOpinion.type,
                 isFavorite = isFavorite,
-                createdAt = topic.createdAt
+                createdAt = authorOpinion.createdAt,
+                attachmentsUrls = attachmentsUrl
             )
         }
     }
@@ -90,7 +92,11 @@ fun SchemaBuilder.topicRoutes(kodein: DI) {
     query("topics") {
         description = "Returns all topics, sorted by [listType]"
         resolver { context: Context, listType: TopicsListType?, searchQuery: String?, page: Int ->
-            val pageCount = topicsDao.getTopicsPageCount()
+            val pageCount = topicsDao.getTopicsPageCount(
+                context.getUserId().takeIf { listType == TopicsListType.BY_CURRENT_USER },
+                searchQuery
+            )
+
             val results = when (listType) {
                 TopicsListType.RECENT -> topicsDao.findRecentTopics(searchQuery, page)
                 TopicsListType.NEW -> topicsDao.findNewTopics(searchQuery, page)

@@ -13,8 +13,6 @@ interface UsersDAOFacade {
 
     suspend fun addUser(username: String, passwordHash: String, email: String? = null): User?
 
-    suspend fun addUser(username: String, password: String, passwordHash: String, email: String? = null): User?
-
     suspend fun updateLastLoginAt(id: Int)
 
     suspend fun getMostActiveUsers(onlyFirst: Boolean, page: Int): List<UserStatistics>

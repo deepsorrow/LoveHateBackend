@@ -10,6 +10,12 @@ enum class UserRole {
     ADMIN
 }
 
+enum class UserOrigin {
+    APP,
+    LOVE_HATE_RU,
+    LOVE_HATE_IO
+}
+
 enum class UserScoreTitle(
     val scoreThreshold: Int
 ) {
@@ -34,7 +40,6 @@ enum class UserScoreTitle(
 data class User(
     val id: Int,
     val username: String,
-    val password: String,
     val passwordHash: String,
     val email: String?,
     val role: UserRole,
@@ -62,14 +67,15 @@ data class UserStatistics(
 object Users : Table() {
     val id = integer("id").autoIncrement()
     val username = varchar("username", 70)
-    val password = varchar("password", 200)
     val passwordHash = varchar("password_hash", 200)
     val passwordUpdatedAt = datetime("password_updated_at").nullable()
     val photoUrl = varchar("photo_url", 200).nullable()
     val email = varchar("email", 60).nullable()
     val role = enumeration<UserRole>("role")
     val disabled = bool("disabled")
-    val lastLoginAt = datetime("last_login_at")
+    val origin = enumeration<UserOrigin>("origin")
+    val isRegistered = bool("is_registered")
+    val lastLoginAt = datetime("last_login_at").nullable()
     val createdAt = datetime("date")
 
     override val primaryKey = PrimaryKey(id, username)
