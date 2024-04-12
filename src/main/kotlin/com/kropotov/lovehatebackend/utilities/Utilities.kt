@@ -45,7 +45,7 @@ fun createThumbnail(sourceFile: File, destLocation: String): File {
     val destFile = File(destLocation)
     destFile.parentFile.mkdirs()
 
-    val desiredWidth = 100
+    val desiredWidth = 180
     val bufferedImage = sourceFile.inputStream().use { ImageIO.read(sourceFile) }
     val resizeImage = if (desiredWidth <= bufferedImage.width) {
         val nHeight = desiredWidth * bufferedImage.height / bufferedImage.width

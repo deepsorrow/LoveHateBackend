@@ -40,6 +40,7 @@ object Opinions : Table() {
     val userId = integer("user_id")
     val text = text("text")
     val type = enumeration<OpinionType>("type")
+    val disabled = bool("disabled")
     val createdAt = datetime("created_at")
 
     override val primaryKey = PrimaryKey(id)

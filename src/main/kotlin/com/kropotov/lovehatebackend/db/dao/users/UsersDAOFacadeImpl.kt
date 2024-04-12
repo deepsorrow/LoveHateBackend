@@ -89,6 +89,7 @@ class UsersDAOFacadeImpl : UsersDAOFacade {
     override suspend fun getMostManySidedUsers(onlyFirst: Boolean, page: Int) = dbQuery {
         selectUserStatistics(
             orderBy = "ORDER BY opinion_percent, score DESC",
+            filter = "WHERE opinion_percent > 0",
             limit = getLimit(onlyFirst),
             page = page
         )

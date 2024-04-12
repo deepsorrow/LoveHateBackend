@@ -27,6 +27,7 @@ data class TopicPage(
 object Topics : Table() {
     val id = integer("id").autoIncrement()
     val title = varchar("title", 128)
+    val disabled = bool("disabled")
 
     override val primaryKey = PrimaryKey(id)
 }

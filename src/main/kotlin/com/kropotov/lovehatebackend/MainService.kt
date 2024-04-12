@@ -34,6 +34,7 @@ fun Application.setupMainService(kodein: DI) {
             favoriteRoutes(kodein)
             feedbackRoutes(kodein)
             userRoutes(kodein)
+            notificationRoutes(kodein)
         }
 
         install(ContentNegotiation) {

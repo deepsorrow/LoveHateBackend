@@ -177,7 +177,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
         userId = row[Opinions.userId],
         text = row[Opinions.text],
         type = row[Opinions.type],
-        createdAt = row[Opinions.createdAt].mapToString(),
+        createdAt = row[Opinions.createdAt].mapToString(row[Opinions.id]),
     )
 
     private fun selectOpinions(
@@ -185,24 +185,26 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
         filter: String = "",
         orderBy: String = "ORDER BY created_at DESC",
         limit: Int = BATCH_OPINION_AMOUNT,
-        searchQuery: String = "%",
+        searchQuery: String = "",
         filterByTopic: Boolean = false,
         page: Int
     ): List<OpinionListItem> {
         // No need to search on topic title, if search already inside topic
-        val searchFilter = if (filterByTopic) {
-            "WHERE t.text iLIKE ? OR t.username iLIKE ?"
-        } else {
-            "WHERE t.text iLIKE ? OR t.title iLIKE ? OR t.username iLIKE ?"
+        val searchFilter = when {
+            filterByTopic && searchQuery.isNotEmpty() -> "WHERE t.text iLIKE ? OR t.username iLIKE ?"
+            searchQuery.isNotEmpty() -> "WHERE t.text iLIKE ? OR t.title iLIKE ? OR t.username iLIKE ?"
+            else -> ""
         }
         // Prepared statement prevents SQL Injection
-        val params = buildList {
+        val params = if (searchQuery.isEmpty()) listOf() else buildList {
             add(Pair(VarCharColumnType(), "%$searchQuery%"))
             add(Pair(VarCharColumnType(), "%$searchQuery%"))
             if (!filterByTopic) {
                 add(Pair(VarCharColumnType(), "%$searchQuery%"))
             }
         }
+        val hideBlocked = "t.disabled = false and o.disabled = false"
+        val prefilter = if (filter.isEmpty()) "WHERE $hideBlocked" else "$filter and $hideBlocked"
 
         return ("" +
                 " WITH TempTable AS (" +
@@ -220,7 +222,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
                 "       ON o.id = f.opinion_id and f.user_id = $userId " +
                 "   LEFT JOIN OpinionReactions opR " +
                 "       ON o.id = opR.opinion_id and opR.user_id = $userId" +
-                " $filter " +
+                " $prefilter " +
                 " ), OpinionStats3 AS (" +
                 " SELECT t.id, t.username, t.title, t.text, t.type, t.created_at," +
                 " t.is_liked, t.is_disliked, t.is_favorite, " +
@@ -228,7 +230,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
                 " COUNT(CASE WHEN opR.type = ${ReactionType.DISLIKE.ordinal} THEN 1 END) as dislike_count " +
                 " FROM TempTable t " +
                 "   LEFT JOIN OpinionReactions opR " +
-                "       ON t.id = opR.opinion_id " +
+                "       ON t.id = opR.opinion_id" +
                 " GROUP BY (t.id, t.username, t.title, t.text, t.type, t.created_at, t.is_liked, t.is_disliked, t.is_favorite)" +
                 " $orderBy)" +
                 "" +
@@ -251,7 +253,7 @@ class OpinionsDAOFacadeImpl : OpinionsDAOFacade {
             topicTitle = row.getString("title"),
             text = row.getString("text"),
             type = OpinionType.entries[row.getInt("type")],
-            date = row.getTimestamp("created_at").toLocalDateTime().mapToString(),
+            date = row.getTimestamp("created_at").toLocalDateTime().mapToString(row.getInt("id")),
             likeCount = row.getInt("like_count").toString(),
             dislikeCount = row.getInt("dislike_count").toString(),
             isFavorite = row.getBoolean("is_favorite"),

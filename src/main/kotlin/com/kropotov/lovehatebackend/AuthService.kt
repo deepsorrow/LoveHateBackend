@@ -81,7 +81,7 @@ fun Application.setupAuthService(kodein: DI) {
                 return@post
             }
             val user = credentials.run {
-                val passwordHash = BCrypt.withDefaults().hashToString(8, password.toCharArray())
+                val passwordHash = BCrypt.withDefaults().hashToString(4, password.toCharArray())
                 usersDao.addUser(username, passwordHash)
             }
 

@@ -92,7 +92,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findMostLovedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            orderBy = "opinion_percent DESC, hate_opinions_count DESC",
+            orderBy = "opinion_percent DESC, opinions_count DESC",
             filterEnd = "AND opinion_type = ${OpinionType.LOVE.ordinal}",
             searchQuery = searchQuery.orEmpty(),
             page = page
@@ -109,7 +109,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
 
     override suspend fun findMostHatedTopics(searchQuery: String?, page: Int): List<TopicOverview> = dbQuery {
         selectTopicStats(
-            orderBy = "opinion_percent DESC, hate_opinions_count DESC",
+            orderBy = "opinion_percent DESC, opinions_count DESC",
             filterEnd = "AND opinion_type = ${OpinionType.HATE.ordinal}",
             searchQuery = searchQuery.orEmpty(),
             page = page
@@ -154,7 +154,7 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
             .select(Attachments.thumbnailPath).where {
                 Topics.id eq topicId
             }
-            .orderBy((Opinions.createdAt to SortOrder.DESC), (Attachments.id to SortOrder.DESC))
+            .orderBy((Attachments.id to SortOrder.DESC))
             .mapNotNull {
                 it[Attachments.thumbnailPath]
             }
@@ -174,82 +174,84 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         searchQuery: String = "%",
         page: Int = 0
     ) = ("" +
-            " WITH OpinionsMinCreatedDate AS (" +
-            " SELECT o.topic_id, MIN(o.created_at) as created_at" +
-            " FROM Opinions o" +
-            " GROUP BY o.topic_id" +
-            " ), " +
-            " TopicsWithAuthorOpinion AS (" +
-            " SELECT oMinDate.topic_id, MIN(o.user_id) as user_id, MIN(o.created_at) as created_at" +
-            " FROM OpinionsMinCreatedDate oMinDate" +
-            "   LEFT JOIN Opinions o" +
-            "       ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at" +
-            " $filterBegin" +
-            " GROUP BY oMinDate.topic_id" +
-            " ), " +
-            " LoveStats AS (" +
-            " SELECT o.topic_id, COUNT(o.id) as love_opinions_count" +
-            " FROM Opinions o" +
-            " WHERE o.type = ${OpinionType.LOVE.ordinal}" +
-            " GROUP BY o.topic_id" +
-            " )," +
-            " HateStats AS (" +
-            " SELECT o.topic_id, COUNT(o.id) as hate_opinions_count" +
-            " FROM Opinions o" +
-            " WHERE o.type = ${OpinionType.HATE.ordinal}" +
-            " GROUP BY o.topic_id" +
-            " )," +
-            " TopicsOpinionsCount AS (" +
-            " SELECT t2.id, t2.title, t.user_id, MIN(t.created_at) as created_at, $extraFieldExp " +
-            " COUNT(o.topic_id) as opinions_count, l.love_opinions_count, h.hate_opinions_count " +
-            "   FROM TopicsWithAuthorOpinion t " +
-            "       LEFT JOIN Topics t2" +
-            "           ON t.topic_id = t2.id" +
-            "       LEFT JOIN Opinions o " +
-            "           ON t.topic_id = o.topic_id" +
-            "       LEFT JOIN LoveStats l" +
-            "           ON t.topic_id = l.topic_id" +
-            "       LEFT JOIN HateStats h" +
-            "           ON t.topic_id = h.topic_id " +
-            " GROUP BY t2.id, t2.title, t.user_id, l.love_opinions_count, h.hate_opinions_count" +
-            " ), TopicsOpinionsCount2 AS (" +
-            " SELECT " +
-            " t.id, t.title, t.opinions_count, love_opinions_count, hate_opinions_count, t.created_at, $extraFieldName " +
-            " CASE " +
-            " WHEN love_opinions_count > hate_opinions_count THEN ${OpinionType.LOVE.ordinal} " +
-            " WHEN hate_opinions_count > love_opinions_count THEN ${OpinionType.HATE.ordinal} " +
-            " ELSE ${OpinionType.INDIFFERENCE.ordinal} " +
-            " END as opinion_type," +
-            " CAST(CASE" +
-            "   WHEN love_opinions_count > hate_opinions_count THEN love_opinions_count / (opinions_count * 1.0)" +
-            "   ELSE hate_opinions_count / (opinions_count * 1.0)" +
-            " END * 100 as int) as opinion_percent" +
-            "   FROM TopicsOpinionsCount t " +
-            "   $extraTable " +
-            " ORDER BY $orderBy " +
-            " )," +
-            " TopicLastAttachment AS (" +
-            " SELECT t.id as topic_id, MAX(a.id) as last_attachment_id" +
-            "   FROM Topics t" +
-            "       LEFT JOIN Opinions o" +
-            "           ON t.id = o.topic_id" +
-            "       LEFT JOIN Attachments a" +
-            "           ON o.id = a.opinion_id" +
-            " GROUP BY t.id" +
-            " ORDER BY MAX(o.created_at), MAX(a.id)" +
-            " )" +
-            " SELECT t.id, t.title, t.love_opinions_count, t.hate_opinions_count, t.opinions_count," +
-            " $extraFieldName t.opinion_type, t.opinion_percent, a.thumbnail_path " +
-            " FROM TopicsOpinionsCount2 t" +
-            "   LEFT JOIN TopicLastAttachment la" +
-            "       ON t.id = la.topic_id" +
-            "   LEFT JOIN Attachments a" +
-            "       ON la.last_attachment_id = a.id" +
-            " WHERE t.title iLIKE ? $filterEnd" +
-            " ORDER BY $orderBy" +
-            " LIMIT $BATCH_TOPIC_AMOUNT OFFSET ${getOffset(page)}").executeAndMap(
-                listOf(Pair(VarCharColumnType(), "%$searchQuery%")) // prevent SQL Injection
-            ) { resultRowToTopicStats(it) }
+                " WITH OpinionsMinCreatedDate AS (" +
+                " SELECT o.topic_id, MIN(o.created_at) as created_at" +
+                " FROM Opinions o" +
+                " GROUP BY o.topic_id" +
+                " ), " +
+                " TopicsWithAuthorOpinion AS (" +
+                " SELECT oMinDate.topic_id, MIN(o.user_id) as user_id, MIN(o.created_at) as created_at" +
+                " FROM OpinionsMinCreatedDate oMinDate" +
+                "   LEFT JOIN Opinions o" +
+                "       ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at" +
+                " $filterBegin" +
+                " GROUP BY oMinDate.topic_id" +
+                " ), " +
+                " LoveStats AS (" +
+                " SELECT o.topic_id, COUNT(o.id) as love_opinions_count" +
+                " FROM Opinions o" +
+                " WHERE o.type = ${OpinionType.LOVE.ordinal}" +
+                " GROUP BY o.topic_id" +
+                " )," +
+                " HateStats AS (" +
+                " SELECT o.topic_id, COUNT(o.id) as hate_opinions_count" +
+                " FROM Opinions o" +
+                " WHERE o.type = ${OpinionType.HATE.ordinal}" +
+                " GROUP BY o.topic_id" +
+                " )," +
+                " TopicsOpinionsCount AS (" +
+                " SELECT t2.id, t2.title, t.user_id, MIN(t.created_at) as created_at, $extraFieldExp " +
+                " COUNT(o.topic_id) as opinions_count, COALESCE(l.love_opinions_count, 0) as love_opinions_count," +
+                " COALESCE(h.hate_opinions_count, 0) as hate_opinions_count " +
+                "   FROM TopicsWithAuthorOpinion t " +
+                "       LEFT JOIN Topics t2" +
+                "           ON t.topic_id = t2.id" +
+                "       LEFT JOIN Opinions o " +
+                "           ON t.topic_id = o.topic_id" +
+                "       LEFT JOIN LoveStats l" +
+                "           ON t.topic_id = l.topic_id" +
+                "       LEFT JOIN HateStats h" +
+                "           ON t.topic_id = h.topic_id " +
+                " WHERE t2.disabled = false and o.disabled = false" +
+                " GROUP BY t2.id, t2.title, t.user_id, l.love_opinions_count, h.hate_opinions_count" +
+                " ), " +
+                " TopicsOpinionsCount2 AS (" +
+                " SELECT " +
+                " t.id, t.title, t.opinions_count, love_opinions_count, hate_opinions_count, t.created_at, $extraFieldName " +
+                " CASE " +
+                " WHEN love_opinions_count > hate_opinions_count THEN ${OpinionType.LOVE.ordinal} " +
+                " WHEN hate_opinions_count > love_opinions_count THEN ${OpinionType.HATE.ordinal} " +
+                " ELSE ${OpinionType.INDIFFERENCE.ordinal} " +
+                " END as opinion_type," +
+                " CAST(CASE" +
+                "   WHEN love_opinions_count > hate_opinions_count THEN love_opinions_count / (opinions_count * 1.0)" +
+                "   ELSE hate_opinions_count / (opinions_count * 1.0)" +
+                " END * 100 as int) as opinion_percent" +
+                "   FROM TopicsOpinionsCount t " +
+                "   $extraTable " +
+                " ORDER BY $orderBy " +
+                " )," +
+                " TopicLastAttachment AS (" +
+                " SELECT t.id as topic_id, MAX(a.id) as last_attachment_id" +
+                "   FROM Topics t" +
+                "       LEFT JOIN Opinions o" +
+                "           ON t.id = o.topic_id" +
+                "       LEFT JOIN Attachments a" +
+                "           ON o.id = a.opinion_id" +
+                " GROUP BY t.id" +
+                " )" +
+                " SELECT t.id, t.title, t.love_opinions_count, t.hate_opinions_count, t.opinions_count," +
+                " $extraFieldName t.opinion_type, t.opinion_percent, a.thumbnail_path " +
+                " FROM TopicsOpinionsCount2 t" +
+                "   LEFT JOIN TopicLastAttachment la" +
+                "       ON t.id = la.topic_id" +
+                "   LEFT JOIN Attachments a" +
+                "       ON la.last_attachment_id = a.id" +
+                " WHERE t.title iLIKE ? $filterEnd" +
+                " ORDER BY $orderBy" +
+                " LIMIT $BATCH_TOPIC_AMOUNT OFFSET ${getOffset(page)}").executeAndMap(
+            listOf(Pair(VarCharColumnType(), "%$searchQuery%")) // prevent SQL Injection
+        ) { resultRowToTopicStats(it) }
 
     private fun resultRowToTopicStats(row: ResultSet) = TopicOverview(
         id = row.getInt("id"),
