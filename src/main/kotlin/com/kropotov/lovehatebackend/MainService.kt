@@ -35,6 +35,7 @@ fun Application.setupMainService(kodein: DI) {
             feedbackRoutes(kodein)
             userRoutes(kodein)
             notificationRoutes(kodein)
+            myRatingRoutes(kodein)
         }
 
         install(ContentNegotiation) {

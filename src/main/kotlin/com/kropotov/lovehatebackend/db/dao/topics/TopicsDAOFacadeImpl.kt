@@ -2,6 +2,7 @@ package com.kropotov.lovehatebackend.db.dao.topics
 
 import com.kropotov.lovehatebackend.db.dao.DatabaseSingleton.dbQuery
 import com.kropotov.lovehatebackend.db.models.*
+import com.kropotov.lovehatebackend.routes.graphql.TopicsListType
 import com.kropotov.lovehatebackend.utilities.Constants.BATCH_TOPIC_AMOUNT
 import com.kropotov.lovehatebackend.utilities.StringSimilarity
 import com.kropotov.lovehatebackend.utilities.executeAndMap
@@ -25,9 +26,14 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
         ).firstOrNull()
     }
 
-    override suspend fun getTopicsPageCount(userId: Int?, searchQuery: String?): Int = dbQuery {
-        val filterUserId = if (userId != null) {
+    override suspend fun getTopicsPageCount(userId: Int?, listType: TopicsListType?, searchQuery: String?): Int = dbQuery {
+        val filterByUserId = if (listType == TopicsListType.BY_CURRENT_USER) {
             "WHERE user_id = $userId"
+        } else {
+            ""
+        }
+        val filterByFavorites = if (listType == TopicsListType.FAVORITES) {
+            "INNER JOIN Favorites f ON t.topic_id = f.topic_id AND f.user_id = $userId"
         } else {
             ""
         }
@@ -43,13 +49,14 @@ class TopicsDAOFacadeImpl : TopicsDAOFacade {
                 " FROM OpinionsMinCreatedDate oMinDate " +
                 "    LEFT JOIN Opinions o " +
                 "        ON oMinDate.topic_id = o.topic_id AND oMinDate.created_at = o.created_at" +
-                " $filterUserId " +
+                " $filterByUserId " +
                 " GROUP BY oMinDate.topic_id)" +
                 "" +
                 " SELECT COUNT(*) " +
                 " FROM TopicsWithAuthorOpinion t" +
                 "   LEFT JOIN Topics tt " +
                 "       ON t.topic_id = tt.id" +
+                "   $filterByFavorites " +
                 " WHERE tt.title iLIKE ?")
             .executeAndMap(listOf(Pair(VarCharColumnType(), "%$searchQuery%"))) { it.getInt("count") }
             .first()

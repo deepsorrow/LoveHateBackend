@@ -93,7 +93,8 @@ fun SchemaBuilder.topicRoutes(kodein: DI) {
         description = "Returns all topics, sorted by [listType]"
         resolver { context: Context, listType: TopicsListType?, searchQuery: String?, page: Int ->
             val pageCount = topicsDao.getTopicsPageCount(
-                context.getUserId().takeIf { listType == TopicsListType.BY_CURRENT_USER },
+                context.getUserId(),
+                listType,
                 searchQuery
             )
 

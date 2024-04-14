@@ -9,6 +9,8 @@ import com.kropotov.lovehatebackend.db.dao.feedback.FeedbackDAOFacade
 import com.kropotov.lovehatebackend.db.dao.feedback.FeedbackDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.media.AttachmentsDAOFacade
 import com.kropotov.lovehatebackend.db.dao.media.AttachmentsDAOFacadeImpl
+import com.kropotov.lovehatebackend.db.dao.myrating.MyRatingDAOFacade
+import com.kropotov.lovehatebackend.db.dao.myrating.MyRatingDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacade
 import com.kropotov.lovehatebackend.db.dao.opinions.OpinionsDAOFacadeImpl
 import com.kropotov.lovehatebackend.db.dao.reactions.OpinionReactionDAOFacade
@@ -39,6 +41,7 @@ fun Application.module() {
         bind<OpinionReactionDAOFacade>() with singleton { OpinionReactionDAOFacadeImpl() }
         bind<AttachmentsDAOFacade>() with singleton { AttachmentsDAOFacadeImpl() }
         bind<FeedbackDAOFacade>() with singleton { FeedbackDAOFacadeImpl() }
+        bind<MyRatingDAOFacade>() with singleton { MyRatingDAOFacadeImpl() }
     }
 
     setupAuthService(kodein)

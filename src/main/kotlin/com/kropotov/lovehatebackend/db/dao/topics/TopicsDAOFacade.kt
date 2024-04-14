@@ -1,11 +1,12 @@
 package com.kropotov.lovehatebackend.db.dao.topics
 
 import com.kropotov.lovehatebackend.db.models.TopicOverview
+import com.kropotov.lovehatebackend.routes.graphql.TopicsListType
 
 interface TopicsDAOFacade {
     suspend fun getTopicOverview(id: Int): TopicOverview?
 
-    suspend fun getTopicsPageCount(userId: Int?, searchQuery: String?): Int
+    suspend fun getTopicsPageCount(userId: Int?, listType: TopicsListType?, searchQuery: String?): Int
 
     suspend fun addNewTopic(title: String, userId: Int): Int?
 
